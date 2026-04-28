@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createTriageService, LocalTriageService } from "@/lib/ai/triage-service";
 import { compareTriagedEmail, summarizeInbox } from "@/lib/triage/analyze-inbox";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { EmailMessage } from "@/types/email";
 
 const emailSchema = z.object({
@@ -25,6 +26,18 @@ const triageRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json(
+      { error: "Sign in before running cloud triage." },
+      { status: 401 },
+    );
+  }
+
   const payload = triageRequestSchema.safeParse(await request.json());
 
   if (!payload.success) {
