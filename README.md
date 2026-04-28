@@ -4,7 +4,7 @@ InboxPilot is a premium, local-first MVP for AI-ready email triage. It helps a u
 
 ## MVP Status
 
-This version runs locally with realistic mock email data. It does not connect Gmail, Outlook, Yahoo, Supabase, or a live AI provider yet.
+This version runs locally with realistic mock email data. OpenAI and Supabase integration scaffolding is now present, but the dashboard still defaults to the safe mock inbox workflow until real auth, persistence, and provider consent flows are added.
 
 ## Features
 
@@ -24,6 +24,8 @@ This version runs locally with realistic mock email data. It does not connect Gm
 - Tailwind CSS
 - shadcn/ui
 - lucide-react
+- OpenAI SDK
+- Supabase SSR/client SDK
 - Vitest
 
 ## Architecture
@@ -37,7 +39,8 @@ src/components/layout    Shared app shell
 src/lib/mock             Mock email data
 src/lib/triage           Local deterministic triage engine
 src/lib/email-providers  Provider adapter contracts and mock provider
-src/lib/ai               Triage service abstraction
+src/lib/ai               OpenAI-ready triage and reply service abstractions
+src/lib/supabase         Browser, server, admin, and session proxy clients
 src/types                Email and triage TypeScript models
 ```
 
@@ -52,12 +55,50 @@ Key files:
 - `src/lib/triage/deadline.ts`
 - `src/lib/triage/rules.ts`
 
+## OpenAI Setup
+
+Server-side OpenAI support lives behind the existing AI abstraction. The local dashboard can continue using deterministic rules, while `/api/triage` can use OpenAI structured output when `OPENAI_API_KEY` is configured.
+
+Environment variables:
+
+```bash
+OPENAI_API_KEY=
+OPENAI_TRIAGE_MODEL=gpt-5.4-mini
+OPENAI_REPLY_MODEL=gpt-5.4-mini
+```
+
+Key files:
+
+- `src/lib/ai/triage-service.ts`
+- `src/lib/ai/reply-service.ts`
+- `src/app/api/triage/route.ts`
+
+## Supabase Setup
+
+Supabase utilities are scaffolded for future auth and persistence. Keep service-role usage server-only, enable Row Level Security on every per-user table, and avoid storing full email bodies unless a user explicitly opts in.
+
+Environment variables:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
+Key files:
+
+- `src/lib/supabase/browser.ts`
+- `src/lib/supabase/server.ts`
+- `src/lib/supabase/admin.ts`
+- `src/lib/supabase/proxy.ts`
+- `src/proxy.ts`
+
 ## Future Cloud Roadmap
 
-- Add Supabase auth and persistence
+- Add Supabase auth and persistence UI
 - Add encrypted email provider token storage
 - Add real provider sync jobs
-- Add OpenAI-powered classification behind the existing triage service interface
+- Connect OpenAI-powered classification and reply suggestions to authenticated user workflows
 - Add saved triage history, user preferences, and review audit trails
 - Deploy on Vercel after production privacy controls are defined
 
@@ -104,6 +145,8 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+Copy `.env.example` to `.env.local` and fill in OpenAI/Supabase values for cloud-backed features.
+
 Quality checks:
 
 ```bash
@@ -131,7 +174,7 @@ Add screenshots here after local visual QA.
 
 ## Known Limitations
 
-- Uses deterministic local rules instead of a live AI model
+- Dashboard still defaults to deterministic local rules until the OpenAI API route is wired into the client workflow
 - Uses mock email data only
 - Review state is stored in React state and resets on refresh
-- Provider OAuth, Supabase persistence, and deployment are intentionally deferred
+- Provider OAuth and Supabase persistence UI are intentionally deferred
