@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { analyzeEmail } from "@/lib/triage/analyze-email";
 import { detectDeadline } from "@/lib/triage/deadline";
-import { analyzeInbox } from "@/lib/triage/analyze-inbox";
+import { analyzeInbox, compareTriagedEmail } from "@/lib/triage/analyze-inbox";
 import { mockEmails } from "@/lib/mock/mock-emails";
 
 describe("detectDeadline", () => {
@@ -85,5 +85,70 @@ describe("analyzeInbox", () => {
     expect(result.summary.totalEmails).toBe(mockEmails.length);
     expect(result.summary.highPriorityCount).toBeGreaterThan(0);
     expect(result.items[0].triage.priority).toBe("high");
+  });
+
+  it("sorts high-impact urgent work above casual high-priority events", () => {
+    const dinner = {
+      email: {
+        id: "gmail:test-dinner",
+        provider: "gmail" as const,
+        senderName: "Stanley Auyeung",
+        senderEmail: "stanley@example.com",
+        subject: "Dinner",
+        body: "Are you available for dinner this Friday? Let me know!",
+        snippet: "Are you available for dinner this Friday? Let me know!",
+        receivedAt: new Date().toISOString(),
+        isRead: false,
+        labels: ["UNREAD"],
+        threadId: "thread-dinner",
+      },
+      triage: {
+        emailId: "gmail:test-dinner",
+        priority: "high" as const,
+        category: "Events",
+        requiresAction: true,
+        deadline: "this Friday",
+        actionSummary: "Events: respond by this Friday.",
+        reason: "Asks for availability.",
+        confidence: 0.86,
+        suggestedNextAction: "Respond with your availability for this Friday.",
+        reviewed: false,
+        pinned: false,
+        snoozedUntil: null,
+      },
+    };
+    const security = {
+      email: {
+        id: "gmail:test-security",
+        provider: "gmail" as const,
+        senderName: "Google",
+        senderEmail: "no-reply@accounts.google.com",
+        subject: "Security alert",
+        body: "New sign-in detected. Verify account activity and change your password if suspicious.",
+        snippet: "New sign-in detected.",
+        receivedAt: new Date().toISOString(),
+        isRead: false,
+        labels: ["UNREAD"],
+        threadId: "thread-security",
+      },
+      triage: {
+        emailId: "gmail:test-security",
+        priority: "high" as const,
+        category: "Urgent",
+        requiresAction: true,
+        deadline: null,
+        actionSummary: "Security action needed.",
+        reason: "Security alert.",
+        confidence: 0.9,
+        suggestedNextAction: "Check recent account activity.",
+        reviewed: false,
+        pinned: false,
+        snoozedUntil: null,
+      },
+    };
+
+    expect([dinner, security].sort(compareTriagedEmail)[0].email.id).toBe(
+      "gmail:test-security",
+    );
   });
 });

@@ -9,9 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ModeSelector } from "@/components/dashboard/mode-selector";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { PriorityQueue } from "@/components/email/priority-queue";
-import { analyzeInbox, summarizeInbox } from "@/lib/triage/analyze-inbox";
+import { analyzeInbox, compareTriagedEmail, summarizeInbox } from "@/lib/triage/analyze-inbox";
 import { mockEmails } from "@/lib/mock/mock-emails";
-import { priorityWeights } from "@/lib/triage/rules";
 
 type InboxSource = "mock" | "gmail";
 type OpenAIConsentPreference = "accepted" | "declined" | null;
@@ -657,22 +656,5 @@ function ScanningState() {
 }
 
 function sortItems(a: TriagedEmail, b: TriagedEmail) {
-  if (a.triage.pinned !== b.triage.pinned) {
-    return a.triage.pinned ? -1 : 1;
-  }
-
-  const priorityDelta =
-    priorityWeights[b.triage.priority] - priorityWeights[a.triage.priority];
-
-  if (priorityDelta !== 0) {
-    return priorityDelta;
-  }
-
-  if (a.triage.deadline && !b.triage.deadline) return -1;
-  if (!a.triage.deadline && b.triage.deadline) return 1;
-
-  return (
-    new Date(b.email.receivedAt).getTime() -
-    new Date(a.email.receivedAt).getTime()
-  );
+  return compareTriagedEmail(a, b);
 }

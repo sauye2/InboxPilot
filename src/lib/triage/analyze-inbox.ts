@@ -33,12 +33,72 @@ export function compareTriagedEmail(a: TriagedEmail, b: TriagedEmail) {
     return priorityDelta;
   }
 
+  const urgencyDelta = contextualUrgencyScore(b) - contextualUrgencyScore(a);
+
+  if (urgencyDelta !== 0) {
+    return urgencyDelta;
+  }
+
   if (a.triage.deadline && !b.triage.deadline) return -1;
   if (!a.triage.deadline && b.triage.deadline) return 1;
 
   return (
     new Date(b.email.receivedAt).getTime() - new Date(a.email.receivedAt).getTime()
   );
+}
+
+function contextualUrgencyScore(item: TriagedEmail) {
+  const text = [
+    item.triage.category,
+    item.triage.suggestedNextAction,
+    item.email.senderName,
+    item.email.senderEmail,
+    item.email.subject,
+    item.email.snippet,
+    item.email.body,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  let score = item.triage.requiresAction ? 2 : 0;
+
+  const categoryWeights: Record<string, number> = {
+    Urgent: 9,
+    Manager: 8,
+    Interviews: 8,
+    "Job Offers": 8,
+    Finance: 7,
+    Clients: 7,
+    "Online Assessment": 6,
+    Documents: 5,
+    Meetings: 5,
+    Applications: 4,
+    Events: 2,
+    Reservations: 2,
+    Purchases: 1,
+    "Inbox Noise": -8,
+  };
+
+  score += categoryWeights[item.triage.category] ?? 0;
+
+  const weightedSignals: Array<[RegExp, number]> = [
+    [/\b(security|password|2fa|two-factor|sign-in|unusual|suspicious)\b/, 9],
+    [/\b(bank|card|transaction|payment|invoice|late fee|bill)\b/, 8],
+    [/\b(boss|manager|lead|client|blocked|approval|approve|sign-off)\b/, 8],
+    [/\b(interview|offer|recruiter|assessment|take-home)\b/, 7],
+    [/\b(deadline|asap|urgent|tomorrow|today|due)\b/, 5],
+    [/\b(meeting|calendar|availability)\b/, 4],
+    [/\b(dinner|plans|reservation|event|ticket|invite|invitation)\b/, 2],
+    [/\b(newsletter|digest|highlights|hiring alert|job alert)\b/, -6],
+  ];
+
+  for (const [pattern, weight] of weightedSignals) {
+    if (pattern.test(text)) {
+      score += weight;
+    }
+  }
+
+  return score;
 }
 
 export function summarizeInbox(items: TriagedEmail[]): InboxSummary {
