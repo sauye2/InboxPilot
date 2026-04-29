@@ -48,7 +48,7 @@ const providerLogoAssets: Record<
     frameClassName: "bg-white/78",
   },
   "Yahoo Mail": {
-    src: "/provider-logos/yahoo-mail.svg",
+    src: "/provider-logos/yahoo-mail-app.svg",
     alt: "Yahoo Mail logo",
     imageClassName: "size-12 rounded-xl object-cover",
     frameClassName: "overflow-hidden bg-white/78",
