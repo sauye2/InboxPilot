@@ -321,8 +321,11 @@ export function DashboardClient({
             value={mode}
             onChange={(next) => {
               setMode(next);
+              setHasRun(false);
+              setOpenAIItems(null);
               setSelectedId(null);
               setSelectedFilter("needs_action");
+              setTaskIds([]);
             }}
           />
 

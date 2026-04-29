@@ -19,7 +19,9 @@ export function analyzeEmail(
   const deadline = detectDeadline(text);
   const actionHits = actionPhrases.filter((phrase) => text.includes(phrase));
   const urgentHits = urgentPhrases.filter((phrase) => text.includes(phrase));
-  const category = detectCategory(text, mode);
+  const detectedCategory = detectCategory(text, mode);
+  const relevantToMode = isRelevantToMode(text, mode, detectedCategory);
+  const category = relevantToMode ? detectedCategory : "Inbox Noise";
 
   let score = 1;
   score += actionHits.length > 0 ? 2 : 0;
@@ -34,11 +36,11 @@ export function analyzeEmail(
   }
 
   if (category === "Inbox Noise") {
-    score -= 1;
+    score -= relevantToMode ? 1 : 4;
   }
 
   const requiresAction =
-    actionHits.length > 0 && !text.includes("no action is required");
+    relevantToMode && actionHits.length > 0 && !text.includes("no action is required");
   const priority = enforceDeadlinePriority(scoreToPriority(score), deadline, requiresAction);
   const confidence = Math.min(0.96, 0.58 + actionHits.length * 0.06 + urgentHits.length * 0.05 + (deadline ? 0.12 : 0));
 
@@ -56,6 +58,32 @@ export function analyzeEmail(
     pinned: reviewState?.pinned ?? false,
     snoozedUntil: reviewState?.snoozedUntil ?? null,
   };
+}
+
+export function isRelevantToMode(text: string, mode: TriageMode, category: string) {
+  if (category === "Inbox Noise") return false;
+
+  const normalized = text.toLowerCase();
+
+  if (mode === "job_search") {
+    return [
+      /\b(job|career|careers|recruiter|recruiting|talent|candidate|application|applied|interview|assessment|take-home|coding exercise|role|position)\b/,
+      /\b(offer|compensation|benefits)\b.*\b(job|role|position|candidate|employment|start date)\b/,
+      /\b(software engineer|product engineer|internship|intern)\b/,
+    ].some((pattern) => pattern.test(normalized));
+  }
+
+  if (mode === "work") {
+    return [
+      /\b(work|manager|boss|lead|team|client|stakeholder|project|approval|approve|brief|document|meeting|agenda|calendar|deadline|blocked|sign-off|status update)\b/,
+      /\b(q[1-4]|launch|roadmap|sprint|standup|review)\b/,
+    ].some((pattern) => pattern.test(normalized));
+  }
+
+  return [
+    /\b(bank|card|transaction|payment|bill|invoice|account|security|password|sign-in|appointment|clinic|medical|doctor|dentist|order|delivery|package|reservation|event|ticket|dinner|invite|invitation|rsvp|travel|flight|hotel|form|document|sign|paperwork)\b/,
+    /\b(are you available|let me know|plans|this friday|tomorrow|today)\b/,
+  ].some((pattern) => pattern.test(normalized));
 }
 
 function enforceDeadlinePriority(

@@ -97,6 +97,51 @@ describe("analyzeEmail", () => {
     expect(result.deadline).toBe("May 3");
     expect(result.priority).not.toBe("low");
   });
+
+  it("treats off-mode financial emails as noise in recruiting mode", () => {
+    const result = analyzeEmail(
+      {
+        id: "gmail:test-student-aid",
+        provider: "gmail",
+        senderName: "Aidvantage - Official Servicer of Federal Student Aid",
+        senderEmail: "noreply@aidvantage.com",
+        subject: "What you need to know about your repayment",
+        body: "Open the account portal to verify the payment schedule and decide whether to enroll in Auto Pay.",
+        snippet: "Your first payment is due soon.",
+        receivedAt: new Date().toISOString(),
+        isRead: false,
+        labels: ["UNREAD"],
+        threadId: "thread-aid",
+      },
+      "job_search",
+    );
+
+    expect(result.category).toBe("Inbox Noise");
+    expect(result.requiresAction).toBe(false);
+    expect(result.priority).toBe("low");
+  });
+
+  it("keeps the same financial email relevant in living mode", () => {
+    const result = analyzeEmail(
+      {
+        id: "gmail:test-student-aid-life",
+        provider: "gmail",
+        senderName: "Aidvantage - Official Servicer of Federal Student Aid",
+        senderEmail: "noreply@aidvantage.com",
+        subject: "What you need to know about your repayment",
+        body: "Open the account portal to verify the payment schedule and decide whether to enroll in Auto Pay.",
+        snippet: "Your first payment is due soon.",
+        receivedAt: new Date().toISOString(),
+        isRead: false,
+        labels: ["UNREAD"],
+        threadId: "thread-aid-life",
+      },
+      "life_admin",
+    );
+
+    expect(result.category).toBe("Finance");
+    expect(result.requiresAction).toBe(true);
+  });
 });
 
 describe("analyzeInbox", () => {

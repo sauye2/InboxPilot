@@ -1,6 +1,6 @@
 import type { EmailMessage } from "@/types/email";
 import type { PriorityLevel, TriageMode, TriageResult } from "@/types/triage";
-import { analyzeEmail } from "@/lib/triage/analyze-email";
+import { analyzeEmail, isRelevantToMode } from "@/lib/triage/analyze-email";
 import { getModeDefinition } from "@/lib/triage/modes";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
@@ -62,6 +62,8 @@ export class OpenAITriageService implements TriageService {
           content: JSON.stringify({
             mode: modeDefinition.shortLabel,
             allowedCategories: modeDefinition.categories,
+            relevancePolicy:
+              "If the email is not relevant to the selected mode, classify it as Inbox Noise even if it has deadlines or actions. Recruiting mode should only include job search/recruiting/application/interview/offer/assessment emails. Working mode should only include workplace, team, manager, client, meeting, project, approval, or document-review emails. Living mode should include personal admin, finance, appointments, purchases, reservations, events, travel, security, documents, and personal replies.",
             email: {
               senderName: email.senderName,
               senderEmail: email.senderEmail,
@@ -91,6 +93,8 @@ export class OpenAITriageService implements TriageService {
     return normalizeTriageResult({
       parsed,
       localResult,
+      mode,
+      email,
       emailId: email.id,
       allowedCategories: modeDefinition.categories,
     });
@@ -100,14 +104,28 @@ export class OpenAITriageService implements TriageService {
 function normalizeTriageResult({
   parsed,
   localResult,
+  mode,
+  email,
   emailId,
   allowedCategories,
 }: {
   parsed: OpenAITriageResponse;
   localResult: TriageResult;
+  mode: TriageMode;
+  email: EmailMessage;
   emailId: string;
   allowedCategories: string[];
 }): TriageResult {
+  const text = [
+    email.senderName,
+    email.senderEmail,
+    email.subject,
+    email.snippet,
+    email.body,
+    email.labels.join(" "),
+  ]
+    .join(" ")
+    .toLowerCase();
   const parsedCategoryAllowed = allowedCategories.includes(parsed.category);
   const deadline = parsed.deadline ?? localResult.deadline;
   const requiresAction = parsed.requiresAction || localResult.requiresAction;
@@ -119,10 +137,11 @@ function normalizeTriageResult({
     (parsedCategoryLooksLikeNoise && (deadline || requiresAction) && localHasUsefulCategory)
       ? localResult.category
       : parsed.category;
+  const relevantToMode = isRelevantToMode(text, mode, category);
   const priority = enforceDeadlinePriority({
-    priority: parsed.priority,
+    priority: relevantToMode ? parsed.priority : "low",
     deadline,
-    requiresAction,
+    requiresAction: relevantToMode && requiresAction,
   });
 
   return {
@@ -130,8 +149,8 @@ function normalizeTriageResult({
       ...parsed,
       emailId,
       priority,
-      category,
-      requiresAction,
+      category: relevantToMode ? category : "Inbox Noise",
+      requiresAction: relevantToMode && requiresAction,
       deadline,
       reviewed: localResult.reviewed,
       pinned: localResult.pinned,

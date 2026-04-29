@@ -56,7 +56,7 @@ export function PriorityQueue({
   }
 
   return (
-    <div className="liquid-glass flex h-[780px] flex-1 flex-col rounded-2xl border-white/70 bg-white/34 p-5 shadow-2xl shadow-black/20 ring-1 ring-white/45">
+    <div className="liquid-glass flex h-full min-h-[900px] flex-1 flex-col rounded-2xl border-white/70 bg-white/34 p-5 shadow-2xl shadow-black/20 ring-1 ring-white/45">
       <div className="flex items-start justify-between border-b border-black/10 pb-4">
         <div>
           <h2 className="text-2xl font-semibold tracking-normal text-[#141817]">
