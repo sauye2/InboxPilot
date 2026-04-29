@@ -1,13 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="yahooGradient" x1="80" x2="432" y1="48" y2="464" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7b61ff"/>
-      <stop offset=".48" stop-color="#6b2df0"/>
+    <linearGradient id="yahooGradient" x1="74" x2="438" y1="46" y2="466" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8058ff"/>
+      <stop offset=".52" stop-color="#6b22ec"/>
       <stop offset="1" stop-color="#6001d2"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" fill="url(#yahooGradient)"/>
-  <path fill="#fff" d="M121 105h270c17.7 0 32 14.3 32 32v126c0 17.7-14.3 32-32 32H121c-17.7 0-32-14.3-32-32V137c0-17.7 14.3-32 32-32Z"/>
-  <path fill="#7357f7" d="M109 126h294v27.5L256 238 109 153.5V126Z"/>
-  <path fill="#fff" d="M90 417h39l22-58h-37l-5 18-5-18H66l25 57-11 31h36l-26-30Zm65-29c0-20 15-32 34-32 9 0 16 3 20 8v-6h32v58h-32v-6c-4 5-11 8-20 8-19 0-34-12-34-30Zm56 0c0-7-5-12-12-12s-12 5-12 12 5 12 12 12 12-5 12-12Zm40 28h32v-28c0-7 4-11 10-11s9 4 9 11v28h32v-34c0-16-9-26-24-26-11 0-20 5-27 13v-41h-32v88Zm91-29c0-18 15-31 35-31 19 0 34 13 34 31s-15 31-34 31c-20 0-35-13-35-31Zm45 0c0-7-4-12-10-12-7 0-11 5-11 12s4 12 11 12c6 0 10-5 10-12Zm31 29v-25h27v25h-27Zm3-32-2-56h30l-3 56h-25Z"/>
+  <rect width="512" height="512" rx="74" fill="url(#yahooGradient)"/>
+  <rect x="100" y="105" width="312" height="190" rx="26" fill="#fff"/>
+  <path fill="#6d48f4" d="M125 126h262v34L256 237 125 160v-34Z"/>
+  <path fill="#fff" d="M100 277c0 10 8 18 18 18h276c10 0 18-8 18-18L292 202l-36 21-36-21-120 75Z" opacity=".98"/>
+  <text x="256" y="410" text-anchor="middle" fill="#fff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="104" font-weight="900" letter-spacing="-7">yahoo!</text>
 </svg>

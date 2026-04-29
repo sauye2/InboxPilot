@@ -230,7 +230,16 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
             </div>
           </div>
 
-          <div className="liquid-glass flex flex-col gap-2 rounded-xl border-black/10 bg-white/58 p-2 sm:flex-row">
+          <div className="liquid-glass rounded-xl border-black/10 bg-white/58 p-2">
+            <div className="relative grid h-10 grid-cols-2 overflow-hidden rounded-lg border border-black/5 bg-[#ede9df]/66 p-1">
+              <span
+                className="absolute bottom-1 top-1 rounded-md border border-white/70 bg-[#fffdf7]/92 shadow-lg shadow-black/10 transition-transform duration-300 ease-out"
+                style={{
+                  left: "0.25rem",
+                  width: "calc((100% - 0.5rem) / 2)",
+                  transform: `translateX(${source === "gmail" ? 100 : 0}%)`,
+                }}
+              />
             {(["mock", "gmail"] as const).map((option) => {
               const selected = source === option;
               const disabled = option === "gmail" && !hasGmailConnection;
@@ -247,16 +256,17 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
                     setHasRun(false);
                     setSelectedId(null);
                   }}
-                  className={`flex h-10 flex-1 items-center justify-center rounded-lg text-sm font-semibold transition-all ${
-                    selected
-                      ? "bg-[#141817] text-[#f7f6f1] shadow-lg"
-                      : "text-[#59635f] hover:bg-white/70"
-                  } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
-                >
-                  {option === "mock" ? "Mock inbox" : "Gmail inbox"}
-                </button>
-              );
-            })}
+                    className={`relative z-10 flex h-full items-center justify-center rounded-md text-sm font-semibold transition-colors duration-300 ${
+                      selected
+                        ? "text-[#141817]"
+                        : "text-[#59635f] hover:text-[#141817]"
+                    } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
+                  >
+                    {option === "mock" ? "Mock Inbox" : "Gmail Inbox"}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {scanError ? (
