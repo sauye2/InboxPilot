@@ -42,10 +42,10 @@ const providerLogoAssets: Record<
     frameClassName: "bg-white/78",
   },
   "Outlook / Microsoft 365": {
-    src: "/provider-logos/outlook.svg",
+    src: "/provider-logos/outlook-2025.png",
     alt: "Microsoft Outlook logo",
-    imageClassName: "size-9 object-contain",
-    frameClassName: "bg-white/78",
+    imageClassName: "size-12 object-contain",
+    frameClassName: "overflow-hidden bg-white/78",
   },
   "Yahoo Mail": {
     src: "/provider-logos/yahoo-mail.png",
