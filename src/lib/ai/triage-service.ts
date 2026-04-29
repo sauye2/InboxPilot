@@ -1,5 +1,5 @@
 import type { EmailMessage } from "@/types/email";
-import type { TriageMode, TriageResult } from "@/types/triage";
+import type { PriorityLevel, TriageMode, TriageResult } from "@/types/triage";
 import { analyzeEmail } from "@/lib/triage/analyze-email";
 import { getModeDefinition } from "@/lib/triage/modes";
 import OpenAI from "openai";
@@ -55,7 +55,7 @@ export class OpenAITriageService implements TriageService {
         {
           role: "system",
           content:
-            "You classify confidential emails for InboxPilot. Return brief, practical triage only. Do not invent facts. Prefer concise task wording. Deadlines and requested replies should raise priority even for personal events. High priority can include non-emergency emails that need a response soon; rank true security, financial, work blockers, and interviews above casual plans. In Life mode, invitations, reservations, concerts, dinners, appointments, and plans belong in Events unless they are pure promotion. If an email asks availability for Friday or another nearby day, include that deadline and mark requiresAction true.",
+            "You classify confidential emails for InboxPilot. Return brief, practical triage only. Do not invent facts. Choose the best category from the allowed categories based on the email's real intent, not only literal keywords. Deadlines, due dates, event dates, availability requests, RSVP requests, forms to submit, documents to sign, and any requested reply must raise priority. Any email with a real upcoming deadline or requested response should be at least medium priority; make it high when the deadline is soon, the sender/subject is important, or the action affects work, recruiting, finance, health, security, travel, reservations, or plans. High priority can include non-emergency emails that need a response soon; rank true security, financial, work blockers, boss/manager messages, interviews, offers, and approvals above casual plans. In Life mode, invitations, reservations, concerts, dinners, appointments, and plans belong in Events unless they are pure promotion. If an email asks whether the user is available for a day/date, include that deadline and mark requiresAction true.",
         },
         {
           role: "user",
@@ -88,15 +88,83 @@ export class OpenAITriageService implements TriageService {
       return localResult;
     }
 
-    return {
+    return normalizeTriageResult({
+      parsed,
+      localResult,
+      emailId: email.id,
+      allowedCategories: modeDefinition.categories,
+    });
+  }
+}
+
+function normalizeTriageResult({
+  parsed,
+  localResult,
+  emailId,
+  allowedCategories,
+}: {
+  parsed: OpenAITriageResponse;
+  localResult: TriageResult;
+  emailId: string;
+  allowedCategories: string[];
+}): TriageResult {
+  const parsedCategoryAllowed = allowedCategories.includes(parsed.category);
+  const deadline = parsed.deadline ?? localResult.deadline;
+  const requiresAction = parsed.requiresAction || localResult.requiresAction;
+  const parsedCategoryLooksLikeNoise = parsed.category === "Inbox Noise";
+  const localHasUsefulCategory =
+    localResult.category !== "Inbox Noise" && allowedCategories.includes(localResult.category);
+  const category =
+    !parsedCategoryAllowed ||
+    (parsedCategoryLooksLikeNoise && (deadline || requiresAction) && localHasUsefulCategory)
+      ? localResult.category
+      : parsed.category;
+  const priority = enforceDeadlinePriority({
+    priority: parsed.priority,
+    deadline,
+    requiresAction,
+  });
+
+  return {
       ...localResult,
       ...parsed,
-      emailId: email.id,
+      emailId,
+      priority,
+      category,
+      requiresAction,
+      deadline,
       reviewed: localResult.reviewed,
       pinned: localResult.pinned,
       snoozedUntil: localResult.snoozedUntil,
     };
+}
+
+function enforceDeadlinePriority({
+  priority,
+  deadline,
+  requiresAction,
+}: {
+  priority: PriorityLevel;
+  deadline: string | null;
+  requiresAction: boolean;
+}): PriorityLevel {
+  if (!deadline) return priority;
+
+  if (priority === "low") {
+    return "medium";
   }
+
+  if (requiresAction && isSoonDeadline(deadline)) {
+    return "high";
+  }
+
+  return priority;
+}
+
+function isSoonDeadline(deadline: string) {
+  return /\b(today|tomorrow|this|friday|thursday|wednesday|tuesday|monday|saturday|sunday|asap|soon)\b/i.test(
+    deadline,
+  );
 }
 
 export function createTriageService() {

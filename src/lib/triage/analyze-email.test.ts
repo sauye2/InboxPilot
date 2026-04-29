@@ -75,6 +75,28 @@ describe("analyzeEmail", () => {
     expect(result.requiresAction).toBe(true);
     expect(result.deadline).toBe("this Friday");
   });
+
+  it("keeps deadline-bearing emails at least medium priority", () => {
+    const result = analyzeEmail(
+      {
+        id: "gmail:test-deadline",
+        provider: "gmail",
+        senderName: "Campus Office",
+        senderEmail: "office@example.com",
+        subject: "Reminder",
+        body: "The form is due May 3.",
+        snippet: "The form is due May 3.",
+        receivedAt: new Date().toISOString(),
+        isRead: true,
+        labels: [],
+        threadId: "thread-deadline",
+      },
+      "life_admin",
+    );
+
+    expect(result.deadline).toBe("May 3");
+    expect(result.priority).not.toBe("low");
+  });
 });
 
 describe("analyzeInbox", () => {

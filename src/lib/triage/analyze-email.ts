@@ -37,9 +37,9 @@ export function analyzeEmail(
     score -= 1;
   }
 
-  const priority = scoreToPriority(score);
   const requiresAction =
     actionHits.length > 0 && !text.includes("no action is required");
+  const priority = enforceDeadlinePriority(scoreToPriority(score), deadline, requiresAction);
   const confidence = Math.min(0.96, 0.58 + actionHits.length * 0.06 + urgentHits.length * 0.05 + (deadline ? 0.12 : 0));
 
   return {
@@ -56,6 +56,24 @@ export function analyzeEmail(
     pinned: reviewState?.pinned ?? false,
     snoozedUntil: reviewState?.snoozedUntil ?? null,
   };
+}
+
+function enforceDeadlinePriority(
+  priority: TriageResult["priority"],
+  deadline: string | null,
+  requiresAction: boolean,
+) {
+  if (!deadline) return priority;
+  if (priority === "low") return "medium";
+  if (
+    requiresAction &&
+    /\b(today|tomorrow|this|friday|thursday|wednesday|tuesday|monday|saturday|sunday|asap|soon)\b/i.test(
+      deadline,
+    )
+  ) {
+    return "high";
+  }
+  return priority;
 }
 
 function detectCategory(text: string, mode: TriageMode) {
