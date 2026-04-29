@@ -317,6 +317,10 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
             setShowConsent(false);
             if (pendingScan) void executeScan(false);
           }}
+          onCancel={() => {
+            setShowConsent(false);
+            setPendingScan(false);
+          }}
         />
       ) : null}
     </main>
@@ -326,40 +330,53 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
 function OpenAIConsentDialog({
   onAccept,
   onLocalOnly,
+  onCancel,
 }: {
   onAccept: () => void;
   onLocalOnly: () => void;
+  onCancel: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#111614]/50 px-4 backdrop-blur-sm">
-      <div className="liquid-glass max-w-lg rounded-2xl border-white/50 bg-[#fffdf7]/88 p-6 shadow-2xl shadow-black/25">
-        <p className="text-sm font-semibold uppercase text-[#0e6f68]">
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-[#111614]/58 px-4 backdrop-blur-sm"
+      onClick={onCancel}
+      role="presentation"
+    >
+      <div
+        className="liquid-glass-dark max-w-lg rounded-2xl p-6 text-[#f7f6f1] shadow-2xl shadow-black/30"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="openai-consent-title"
+      >
+        <p className="text-sm font-semibold uppercase text-[#8bd3c7]">
           OpenAI email analysis
         </p>
-        <h2 className="mt-2 text-3xl font-semibold tracking-normal text-[#141817]">
+        <h2
+          id="openai-consent-title"
+          className="mt-2 text-3xl font-semibold tracking-normal text-[#f7f6f1]"
+        >
           Allow OpenAI-assisted scanning?
         </h2>
-        <p className="mt-4 text-sm leading-6 text-[#4a504d]">
-          InboxPilot can send selected message metadata, snippets, and available
-          body text to OpenAI to classify priority and draft concise next steps.
-          Opting in is recommended for better, more accurate parsing. You can
-          continue with local rules if you prefer.
+        <p className="mt-4 text-sm leading-6 text-white/78">
+          OpenAI helps parse message context and turn emails into clearer next
+          steps. If you opt out, InboxPilot will scan with local rules only.
         </p>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           <Button
             type="button"
-            onClick={onAccept}
-            className="h-11 bg-[#141817] text-[#f7f6f1] hover:bg-[#27302d]"
+            variant="outline"
+            onClick={onLocalOnly}
+            className="h-11 border-white/18 bg-white/82 text-[#141817] hover:bg-white"
           >
-            Allow OpenAI scan
+            Opt-Out
           </Button>
           <Button
             type="button"
-            variant="outline"
-            onClick={onLocalOnly}
-            className="h-11 border-black/10 bg-white/70"
+            onClick={onAccept}
+            className="h-11 bg-[#f7f6f1] text-[#141817] hover:bg-white"
           >
-            Use local rules
+            Opt-In (Recommended)
           </Button>
         </div>
       </div>
