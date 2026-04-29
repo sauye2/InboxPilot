@@ -18,8 +18,8 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5">
-      <div className="liquid-glass mx-auto flex h-16 max-w-[1500px] items-center justify-between rounded-xl bg-[#f7f6f1]/70 px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-3">
+      <div className="liquid-glass relative mx-auto flex h-16 max-w-[1500px] items-center justify-between rounded-xl bg-[#f7f6f1]/70 px-4 sm:px-6">
+        <Link href="/" className="relative z-10 flex items-center gap-3">
           <span className="flex size-9 items-center justify-center rounded-md bg-[#141817] text-[#f7f6f1] shadow-sm">
             <Plane className="size-4" />
           </span>
@@ -33,7 +33,7 @@ export async function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-2 md:flex">
+        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-3 md:flex">
           <Link
             href="/dashboard"
             className={buttonVariants({
@@ -44,6 +44,10 @@ export async function SiteHeader() {
           >
             Dashboard
           </Link>
+          <span
+            aria-hidden="true"
+            className="h-5 w-px rounded-full bg-[#d8d1c4]"
+          />
           <Link
             href="/connections"
             className={buttonVariants({
@@ -55,6 +59,10 @@ export async function SiteHeader() {
             <Unplug className="size-4" />
             Connections
           </Link>
+          <span
+            aria-hidden="true"
+            className="h-5 w-px rounded-full bg-[#d8d1c4]"
+          />
           <Link
             href="/settings"
             className={buttonVariants({
@@ -72,7 +80,7 @@ export async function SiteHeader() {
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Open account menu"
-              className="flex size-10 items-center justify-center rounded-full border border-[#d8d1c4] bg-[#fffdf7] text-[#141817] shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#0e6f68]/20"
+              className="relative z-10 flex size-10 items-center justify-center rounded-full border border-[#d8d1c4] bg-[#fffdf7] text-[#141817] shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#0e6f68]/20"
             >
               <User className="size-4" />
             </DropdownMenuTrigger>
@@ -98,7 +106,7 @@ export async function SiteHeader() {
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="relative z-10 flex items-center gap-2">
             <div className="hidden items-center gap-2 rounded-full border border-[#0e6f68]/20 bg-[#e7f1ec] px-3 py-1.5 text-xs font-medium text-[#155f59] lg:flex">
               <ShieldCheck className="size-3.5" />
               Mock data only
