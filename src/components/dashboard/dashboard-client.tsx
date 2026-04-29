@@ -189,8 +189,11 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
               Local-first MVP with mock inbox data
             </div>
 
-            <h1 className="mt-5 max-w-3xl text-5xl font-semibold leading-[1.03] tracking-normal sm:text-6xl">
-              {greeting}. Here is your email summary.
+            <h1 className="mt-5 max-w-3xl text-6xl font-semibold leading-none tracking-normal sm:text-7xl">
+              {greeting}.
+              <span className="mt-2 block text-5xl leading-[1.03] sm:text-6xl">
+                Here is your email summary.
+              </span>
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-white/64">
               Choose a workflow, scan realistic mock emails, and keep the next

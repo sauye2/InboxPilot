@@ -183,7 +183,7 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
             return (
               <article
                 key={provider.name}
-                className="liquid-glass rounded-2xl border-black/10 bg-white/66 p-5"
+                className="liquid-glass flex min-h-[278px] flex-col rounded-2xl border-black/10 bg-white/66 p-5"
               >
                 <div className="flex items-center justify-between gap-3">
                   <span
@@ -205,44 +205,46 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
                     ? `Connected as ${connection.provider_account_email}`
                     : provider.detail}
                 </p>
-                {isConnected ? (
-                  <div className="mt-5 space-y-3">
-                    <div className="rounded-xl border border-black/8 bg-[#ede9df]/58 px-4 py-3 text-sm text-[#4a504d]">
-                      <span className="block text-xs font-semibold uppercase tracking-wide text-[#68716d]">
-                        Signed in as
-                      </span>
-                      <span className="mt-1 block truncate font-medium text-[#141817]">
-                        {connection.provider_account_email}
-                      </span>
+                <div className="mt-auto pt-5">
+                  {isConnected ? (
+                    <div className="flex min-h-11 items-center gap-3 rounded-xl border border-black/8 bg-[#ede9df]/58 px-3 py-2 text-[#4a504d] shadow-inner shadow-white/20">
+                      <p className="min-w-0 flex-1 truncate text-[11px] leading-5 text-[#4a504d]">
+                        <span className="font-semibold uppercase tracking-wide text-[#68716d]">
+                          Signed in as
+                        </span>{" "}
+                        <span className="font-medium text-[#141817]">
+                          {connection.provider_account_email}
+                        </span>
+                      </p>
+                      <form action={disconnectGmailAction} className="shrink-0">
+                        <button
+                          type="submit"
+                          className="h-7 rounded-md border border-black/10 bg-white/58 px-2.5 text-[11px] font-semibold text-[#4a504d] transition hover:bg-white hover:text-[#141817]"
+                        >
+                          Sign out
+                        </button>
+                      </form>
                     </div>
-                    <form action={disconnectGmailAction}>
-                      <button
-                        type="submit"
-                        className="h-8 rounded-md border border-black/10 bg-white/52 px-3 text-xs font-semibold text-[#4a504d] transition hover:bg-white hover:text-[#141817]"
-                      >
-                        Sign out
-                      </button>
-                    </form>
-                  </div>
-                ) : provider.disabled ? (
-                  <button
-                    disabled
-                    className="mt-5 flex h-11 w-full items-center justify-center rounded-md border border-black/10 bg-[#ede9df]/70 text-sm font-medium text-[#7d8680]"
-                  >
-                    Sign in unavailable
-                  </button>
-                ) : (
-                  <Link
-                    href={user ? provider.href ?? "#" : "/login?next=/connections"}
-                    className={buttonVariants({
-                      size: "lg",
-                      className:
-                        "mt-5 h-11 w-full bg-[#141817] text-[#f7f6f1] hover:bg-[#27302d]",
-                    })}
-                  >
-                    Connect Gmail
-                  </Link>
-                )}
+                  ) : provider.disabled ? (
+                    <button
+                      disabled
+                      className="flex h-11 w-full items-center justify-center rounded-md border border-black/10 bg-[#ede9df]/70 text-sm font-medium text-[#7d8680]"
+                    >
+                      Sign in unavailable
+                    </button>
+                  ) : (
+                    <Link
+                      href={user ? provider.href ?? "#" : "/login?next=/connections"}
+                      className={buttonVariants({
+                        size: "lg",
+                        className:
+                          "h-11 w-full bg-[#141817] text-[#f7f6f1] hover:bg-[#27302d]",
+                      })}
+                    >
+                      Connect Gmail
+                    </Link>
+                  )}
+                </div>
               </article>
             );
           })}
