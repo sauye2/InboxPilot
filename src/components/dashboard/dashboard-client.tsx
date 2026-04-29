@@ -18,6 +18,8 @@ type OpenAIConsentPreference = "accepted" | "declined" | null;
 
 type DashboardClientProps = {
   hasGmailConnection?: boolean;
+  initialAIProcessingEnabled?: boolean;
+  initialOpenAITriageEnabled?: boolean;
 };
 
 function getTimeGreeting() {
@@ -27,7 +29,11 @@ function getTimeGreeting() {
   return "Good evening";
 }
 
-export function DashboardClient({ hasGmailConnection = false }: DashboardClientProps) {
+export function DashboardClient({
+  hasGmailConnection = false,
+  initialAIProcessingEnabled = false,
+  initialOpenAITriageEnabled = false,
+}: DashboardClientProps) {
   const [mode, setMode] = useState<TriageMode>("job_search");
   const [hasRun, setHasRun] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -42,6 +48,8 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
   const [selectedFilter, setSelectedFilter] = useState<string>("needs_action");
   const [taskIds, setTaskIds] = useState<string[]>([]);
   const [reviewState, setReviewState] = useState<Record<string, Partial<TriageResult>>>({});
+  const initialConsent: OpenAIConsentPreference =
+    initialAIProcessingEnabled && initialOpenAITriageEnabled ? "accepted" : null;
 
   const analyzed = useMemo(() => {
     if (!openAIItems) {
@@ -91,7 +99,7 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
   function getOpenAIConsentPreference(): OpenAIConsentPreference {
     const preference = window.localStorage.getItem("inboxpilot-openai-email-consent");
     if (preference === "accepted" || preference === "declined") return preference;
-    return null;
+    return initialConsent;
   }
 
   function runScan() {
@@ -124,29 +132,24 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
         emails = payload.messages;
       }
 
-      if (useOpenAI) {
-        const response = await fetch("/api/triage", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            mode,
-            emails,
-            useOpenAI: true,
-          }),
-        });
-        const payload = await response.json();
+      const response = await fetch("/api/triage", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          emails,
+          useOpenAI,
+        }),
+      });
+      const payload = await response.json();
 
-        if (!response.ok) {
-          throw new Error(payload.error ?? "OpenAI scan failed.");
-        }
-
-        setOpenAIItems(payload.items);
-        setActiveEmails(payload.items.map((item: TriagedEmail) => item.email));
-      } else {
-        setOpenAIItems(null);
-        setActiveEmails(emails);
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Scan failed.");
       }
 
+      setOpenAIItems(payload.items);
+      setActiveEmails(payload.items.map((item: TriagedEmail) => item.email));
+      setTaskIds(payload.taskEmailIds ?? []);
       setHasRun(true);
       setSelectedId(null);
     } catch (error) {
@@ -168,15 +171,54 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
   }
 
   function toggleReviewed(id: string) {
-    updateReviewState(id, { reviewed: !reviewState[id]?.reviewed });
+    const currentReviewed =
+      analyzed.items.find((item) => item.email.id === id)?.triage.reviewed ?? false;
+    const reviewed = !currentReviewed;
+    updateReviewState(id, { reviewed });
+    void saveReviewAction(id, reviewed ? "reviewed" : "unreviewed");
   }
 
   function pin(id: string) {
-    updateReviewState(id, { pinned: !reviewState[id]?.pinned });
+    const currentPinned =
+      analyzed.items.find((item) => item.email.id === id)?.triage.pinned ?? false;
+    const pinned = !currentPinned;
+    updateReviewState(id, { pinned });
+    void saveReviewAction(id, pinned ? "pinned" : "unpinned");
   }
 
   function addTask(id: string) {
     setTaskIds((current) => (current.includes(id) ? current : [...current, id]));
+    void saveReviewAction(id, "task_created");
+  }
+
+  async function saveReviewAction(
+    emailId: string,
+    actionType:
+      | "reviewed"
+      | "unreviewed"
+      | "pinned"
+      | "unpinned"
+      | "task_created",
+  ) {
+    if (!hasRun) return;
+
+    await fetch("/api/review-actions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ emailId, actionType }),
+    });
+  }
+
+  async function saveOpenAIPreference(enabled: boolean) {
+    await fetch("/api/user-preferences", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        aiProcessingEnabled: enabled,
+        openAITriageEnabled: enabled,
+        openAIReplySuggestionsEnabled: enabled,
+      }),
+    });
   }
 
   return (
@@ -345,11 +387,13 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
         <OpenAIConsentDialog
           onAccept={() => {
             window.localStorage.setItem("inboxpilot-openai-email-consent", "accepted");
+            void saveOpenAIPreference(true);
             setShowConsent(false);
             if (pendingScan) void executeScan(true);
           }}
           onLocalOnly={() => {
             window.localStorage.setItem("inboxpilot-openai-email-consent", "declined");
+            void saveOpenAIPreference(false);
             setShowConsent(false);
             if (pendingScan) void executeScan(false);
           }}
@@ -430,6 +474,39 @@ function TaskList({
   onToggleReviewed: (id: string) => void;
   onRemove: (id: string) => void;
 }) {
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [draftingId, setDraftingId] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+
+  async function generateReply(emailId: string) {
+    setDraftingId(emailId);
+    setDraftError(null);
+
+    try {
+      const response = await fetch("/api/reply-suggestion", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ emailId, tone: "professional" }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Unable to draft reply.");
+      }
+
+      setDrafts((current) => ({
+        ...current,
+        [emailId]: payload.suggestion.body,
+      }));
+    } catch (error) {
+      setDraftError(
+        error instanceof Error ? error.message : "Unable to draft reply.",
+      );
+    } finally {
+      setDraftingId(null);
+    }
+  }
+
   return (
     <section className="liquid-glass rounded-2xl border-black/10 bg-white/64 p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -455,6 +532,11 @@ function TaskList({
         </div>
       ) : (
         <div className="mt-5 grid gap-3 md:grid-cols-2">
+          {draftError ? (
+            <div className="rounded-xl border border-[#c86a3b]/20 bg-[#fff1e8] px-4 py-3 text-sm text-[#8b4d2c] md:col-span-2">
+              {draftError}
+            </div>
+          ) : null}
           {tasks.map((item) => (
             <article
               key={item.email.id}
@@ -488,7 +570,19 @@ function TaskList({
                 >
                   Remove
                 </button>
+                <button
+                  className="rounded-md border border-black/10 bg-white/70 px-3 py-1.5 text-sm"
+                  disabled={draftingId === item.email.id}
+                  onClick={() => generateReply(item.email.id)}
+                >
+                  {draftingId === item.email.id ? "Drafting..." : "Draft reply"}
+                </button>
               </div>
+              {drafts[item.email.id] ? (
+                <div className="mt-4 rounded-lg bg-[#f1f0ea] p-3 text-sm leading-6 text-[#33423d]">
+                  {drafts[item.email.id]}
+                </div>
+              ) : null}
             </article>
           ))}
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Brain, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -19,10 +19,47 @@ export function AIPreferenceCard() {
   const [preference, setPreference] = useState<OpenAIConsentPreference>(
     getStoredPreference,
   );
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPreference() {
+      const response = await fetch("/api/user-preferences");
+      if (!response.ok) return;
+
+      const payload = await response.json();
+      const enabled =
+        payload.preferences?.aiProcessingEnabled &&
+        payload.preferences?.openAITriageEnabled;
+
+      if (mounted) {
+        const nextPreference = enabled ? "accepted" : "declined";
+        window.localStorage.setItem(storageKey, nextPreference);
+        setPreference(nextPreference);
+      }
+    }
+
+    void loadPreference();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   function updatePreference(nextPreference: Exclude<OpenAIConsentPreference, null>) {
     window.localStorage.setItem(storageKey, nextPreference);
     setPreference(nextPreference);
+    setIsSaving(true);
+    void fetch("/api/user-preferences", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        aiProcessingEnabled: nextPreference === "accepted",
+        openAITriageEnabled: nextPreference === "accepted",
+        openAIReplySuggestionsEnabled: nextPreference === "accepted",
+      }),
+    }).finally(() => setIsSaving(false));
   }
 
   const enabled = preference === "accepted";
@@ -50,6 +87,9 @@ export function AIPreferenceCard() {
             <CheckCircle2 className="size-3.5 text-[#0e6f68]" />
             {enabled ? "AI parsing on" : "Local rules only"}
           </span>
+          {isSaving ? (
+            <span className="text-xs font-medium text-[#68716d]">Saving...</span>
+          ) : null}
           <div className="flex gap-2">
             <Button
               type="button"

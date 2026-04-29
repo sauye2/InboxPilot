@@ -4,7 +4,7 @@ InboxPilot is a premium, local-first MVP for AI-ready email triage. It helps a u
 
 ## MVP Status
 
-This version runs locally with realistic mock email data. OpenAI and Supabase integration scaffolding is now present, but the dashboard still defaults to the safe mock inbox workflow until real auth, persistence, and provider consent flows are added.
+This version supports signed-in Supabase users, mock inbox scans, Gmail read-only scans, optional OpenAI-assisted triage, persisted scan results, persisted review actions, and task-list reply suggestion groundwork. Outlook and Yahoo provider implementations remain intentionally deferred.
 
 ## Features
 
@@ -13,8 +13,11 @@ This version runs locally with realistic mock email data. OpenAI and Supabase in
 - Deterministic local triage engine with keyword matching, action detection, deadline extraction, sender hints, category mapping, and priority scoring
 - Dashboard summary metrics, priority queue, filters, search, sorting, and email detail panel
 - Review workflow for marking reviewed, snoozing, pinning, hiding low priority items, and clearing reviewed items
-- Provider adapter structure for future Gmail, Outlook, Yahoo, and mock inbox implementations
-- AI service abstraction that can later be swapped to an OpenAI-powered implementation
+- Gmail read-only OAuth scan path for signed-in users
+- Provider adapter structure for future Outlook, Yahoo, and mock inbox implementations
+- OpenAI triage abstraction with local-rule fallback
+- Supabase persistence for normalized message metadata, triage results, review actions, and AI preferences
+- Task-list reply suggestion endpoint using the OpenAI reply service when the user opts in
 
 ## Tech Stack
 
@@ -72,10 +75,11 @@ Key files:
 - `src/lib/ai/triage-service.ts`
 - `src/lib/ai/reply-service.ts`
 - `src/app/api/triage/route.ts`
+- `src/app/api/reply-suggestion/route.ts`
 
 ## Supabase Setup
 
-Supabase utilities are scaffolded for future auth and persistence. Keep service-role usage server-only, enable Row Level Security on every per-user table, and avoid storing full email bodies unless a user explicitly opts in.
+Supabase utilities now support authentication, Gmail connection metadata, encrypted Gmail refresh-token storage, user AI preferences, persisted message metadata, persisted triage results, and append-only review actions. Service-role usage stays server-only. The Gmail scan path stores snippets and metadata by default, not full email bodies.
 
 Environment variables:
 
@@ -91,16 +95,16 @@ Key files:
 - `src/lib/supabase/server.ts`
 - `src/lib/supabase/admin.ts`
 - `src/lib/supabase/proxy.ts`
+- `src/lib/supabase/triage-persistence.ts`
 - `src/proxy.ts`
 
 ## Future Cloud Roadmap
 
-- Add Supabase auth and persistence UI
-- Add encrypted email provider token storage
-- Add real provider sync jobs
-- Connect OpenAI-powered classification and reply suggestions to authenticated user workflows
-- Add saved triage history, user preferences, and review audit trails
-- Deploy on Vercel after production privacy controls are defined
+- Add richer saved triage history views
+- Add production-grade provider sync jobs and rate-limit handling
+- Add editable AI reply drafts and send/export workflows
+- Add Outlook and Yahoo provider adapters
+- Add account disconnect audit logs and retention controls
 
 ## Future Supabase Schema Plan
 
@@ -154,7 +158,7 @@ GOOGLE_CLIENT_SECRET=
 GOOGLE_GMAIL_REDIRECT_URI=https://inboxpilot-sa.vercel.app/api/email-providers/gmail/callback
 ```
 
-This first pass stores connection metadata in Supabase. Token persistence is intentionally deferred until encrypted token storage is added.
+This first pass stores connection metadata in Supabase and stores Gmail refresh tokens encrypted with `TOKEN_ENCRYPTION_KEY` on the server.
 
 ## Security And Privacy Notes
 
@@ -182,9 +186,9 @@ npm run build
 ## Routes
 
 - `/` - product intro and demo CTA
-- `/dashboard` - local mock inbox triage dashboard
-- `/connections` - future provider connection placeholders
-- `/settings` - future AI, Supabase, and privacy configuration placeholders
+- `/dashboard` - mock/Gmail inbox triage dashboard
+- `/connections` - Gmail connection flow plus Outlook/Yahoo placeholders
+- `/settings` - AI, Supabase, and privacy preference controls
 
 ## Screenshots
 
@@ -198,7 +202,7 @@ Add screenshots here after local visual QA.
 
 ## Known Limitations
 
-- Dashboard still defaults to deterministic local rules until the OpenAI API route is wired into the client workflow
-- Uses mock email data only
-- Review state is stored in React state and resets on refresh
-- Provider OAuth and Supabase persistence UI are intentionally deferred
+- Gmail fetch currently uses Gmail metadata/snippets rather than full MIME body parsing
+- Reply suggestions are generated in the task list but are not yet editable/saved as draft records
+- Outlook and Yahoo sign-ins are not implemented yet
+- Review actions are append-only; a dedicated compact current-state table can be added later if needed

@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createTriageService, LocalTriageService } from "@/lib/ai/triage-service";
 import { compareTriagedEmail, summarizeInbox } from "@/lib/triage/analyze-inbox";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { persistTriagedInbox } from "@/lib/supabase/triage-persistence";
 import type { EmailMessage } from "@/types/email";
 
 const emailSchema = z.object({
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
 
   const { emails, mode, useOpenAI } = payload.data;
   const service = useOpenAI ? createTriageService() : new LocalTriageService();
+  const provider = useOpenAI && process.env.OPENAI_API_KEY ? "openai" : "local";
   const items = await Promise.all(
     emails.map(async (email) => ({
       email: email as EmailMessage,
@@ -57,10 +60,19 @@ export async function POST(request: Request) {
   );
 
   items.sort(compareTriagedEmail);
+  const persisted = await persistTriagedInbox({
+    admin: createSupabaseAdminClient(),
+    userId: user.id,
+    mode,
+    items,
+    modelProvider: provider,
+    modelName: provider === "openai" ? process.env.OPENAI_TRIAGE_MODEL ?? "gpt-5.4-mini" : null,
+  });
 
   return NextResponse.json({
-    provider: useOpenAI && process.env.OPENAI_API_KEY ? "openai" : "local",
-    items,
-    summary: summarizeInbox(items),
+    provider,
+    items: persisted.items,
+    summary: summarizeInbox(persisted.items),
+    taskEmailIds: persisted.taskEmailIds,
   });
 }
