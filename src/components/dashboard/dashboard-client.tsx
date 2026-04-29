@@ -189,7 +189,7 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
               Local-first MVP with mock inbox data
             </div>
 
-            <h1 className="-ml-1 mt-4 max-w-3xl text-6xl font-semibold leading-none tracking-normal sm:text-7xl">
+            <h1 className="-ml-2 mt-4 max-w-3xl text-6xl font-semibold leading-none tracking-normal sm:text-7xl">
               {greeting}.
               <span className="mt-1.5 block text-3xl leading-tight sm:text-4xl">
                 Here is your email summary.
@@ -204,12 +204,12 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
                 size="lg"
                 onClick={runScan}
                 disabled={isScanning}
-                className="h-10 w-fit shrink-0 rounded-full border border-white/70 bg-[#fffdf7]/92 px-4 text-[#141817] shadow-lg shadow-black/18 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-xl lg:absolute lg:bottom-7 lg:right-7"
+                className="h-10 w-fit shrink-0 rounded-full border border-white/70 bg-[#fffdf7]/92 px-4 text-[#141817] shadow-lg shadow-black/18 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-xl lg:absolute lg:bottom-5 lg:right-5"
               >
                 {isScanning ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
-                  <Play className="size-4" />
+                  <Play className="size-4 fill-[#141817]" />
                 )}
                 {isScanning
                   ? source === "gmail"
