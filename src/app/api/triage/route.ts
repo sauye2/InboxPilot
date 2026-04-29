@@ -53,12 +53,11 @@ export async function POST(request: Request) {
     const { emails, mode, useOpenAI } = payload.data;
     const service = useOpenAI ? createTriageService() : new LocalTriageService();
     const provider = useOpenAI && process.env.OPENAI_API_KEY ? "openai" : "local";
-    const items = await Promise.all(
-      emails.map(async (email) => ({
+    const concurrency = provider === "openai" ? getOpenAIConcurrency() : 8;
+    const items = await mapWithConcurrency(emails, concurrency, async (email) => ({
         email: email as EmailMessage,
         triage: await service.analyzeEmail(email as EmailMessage, mode),
-      })),
-    );
+      }));
 
     items.sort(compareTriagedEmail);
     const persisted = await persistTriagedInbox({
@@ -87,4 +86,34 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+function getOpenAIConcurrency() {
+  const parsed = Number(process.env.OPENAI_TRIAGE_CONCURRENCY ?? 2);
+
+  if (!Number.isFinite(parsed)) return 2;
+  return Math.max(1, Math.min(4, Math.floor(parsed)));
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+) {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
+  );
+
+  return results;
 }

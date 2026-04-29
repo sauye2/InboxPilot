@@ -49,40 +49,42 @@ export class OpenAITriageService implements TriageService {
     const localResult = await this.fallback.analyzeEmail(email, mode);
     const modeDefinition = getModeDefinition(mode);
 
-    const response = await this.client.responses.parse({
-      model: this.model,
-      input: [
-        {
-          role: "system",
-          content:
-            "You classify confidential emails for InboxPilot. Return brief, practical triage only. Do not invent facts. Choose the best category from the allowed categories based on the email's real intent, not only literal keywords. Be strict about mode relevance: when an email does not belong to the selected mode, use Inbox Noise, requiresAction false, no deadline, low priority. Promotional emails, newsletters, sale/discount offers, upgrade prompts, feature announcements, job alerts outside Recruiting, and auth/OTP codes outside a directly relevant workflow are Inbox Noise. Purchases must be actual receipts, order confirmations, shipping, tracking, delivery, or purchased service notices, not promotional discounts. Finance must be real financial account, debt, repayment, bill, payment, statement, transaction, or collection messages. Events must be real plans, invitations, reservations, tickets, appointments, or upcoming events, not promotional announcements. Working mode should only contain workplace/team/client/manager/project emails; Vercel/Supabase/GitHub project/deployment/security-project emails may be Project Updates, but signup/auth/OTP/promotional emails are Inbox Noise. Deadlines, due dates, event dates, availability requests, RSVP requests, forms to submit, documents to sign, and any requested reply must raise priority only when the email is mode-relevant.",
+    const response = await withRateLimitRetry(() =>
+      this.client.responses.parse({
+        model: this.model,
+        input: [
+          {
+            role: "system",
+            content:
+              "You classify confidential emails for InboxPilot. Return brief, practical triage only. Do not invent facts. Choose the best category from the allowed categories based on the email's real intent, not only literal keywords. Be strict about mode relevance: when an email does not belong to the selected mode, use Inbox Noise, requiresAction false, no deadline, low priority. Promotional emails, newsletters, sale/discount offers, upgrade prompts, feature announcements, job alerts outside Recruiting, and auth/OTP codes outside a directly relevant workflow are Inbox Noise. Purchases must be actual receipts, order confirmations, shipping, tracking, delivery, or purchased service notices, not promotional discounts. Finance must be real financial account, debt, repayment, bill, payment, statement, transaction, or collection messages. Events must be real plans, invitations, reservations, tickets, appointments, or upcoming events, not promotional announcements. Working mode should only contain workplace/team/client/manager/project emails; Vercel/Supabase/GitHub project/deployment/security-project emails may be Project Updates, but signup/auth/OTP/promotional emails are Inbox Noise. Deadlines, due dates, event dates, availability requests, RSVP requests, forms to submit, documents to sign, and any requested reply must raise priority only when the email is mode-relevant.",
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              mode: modeDefinition.shortLabel,
+              allowedCategories: modeDefinition.categories,
+              relevancePolicy:
+                "If the email is not relevant to the selected mode, classify it as Inbox Noise even if it has deadlines or actions. Recruiting mode should only include job search/recruiting/application/interview/offer/assessment emails. Working mode should only include workplace, team, manager, client, meeting, project, approval, document-review, or coding-project operations emails. Living mode should include personal admin, finance, appointments, actual purchases, reservations, events, travel, security, documents, and personal replies. Promo and marketing emails are Inbox Noise unless they confirm a real existing purchase/reservation/event.",
+              email: {
+                senderName: email.senderName,
+                senderEmail: email.senderEmail,
+                subject: truncateForPrompt(email.subject, 220),
+                snippet: truncateForPrompt(email.snippet, 700),
+                body: truncateForPrompt(email.body, 2200),
+                receivedAt: email.receivedAt,
+                isRead: email.isRead,
+                labels: email.labels.slice(0, 8),
+              },
+            }),
+          },
+        ],
+        text: {
+          format: zodTextFormat(triageSchema, "inboxpilot_email_triage"),
+          verbosity: "low",
         },
-        {
-          role: "user",
-          content: JSON.stringify({
-            mode: modeDefinition.shortLabel,
-            allowedCategories: modeDefinition.categories,
-            relevancePolicy:
-              "If the email is not relevant to the selected mode, classify it as Inbox Noise even if it has deadlines or actions. Recruiting mode should only include job search/recruiting/application/interview/offer/assessment emails. Working mode should only include workplace, team, manager, client, meeting, project, approval, document-review, or coding-project operations emails. Living mode should include personal admin, finance, appointments, actual purchases, reservations, events, travel, security, documents, and personal replies. Promo and marketing emails are Inbox Noise unless they confirm a real existing purchase/reservation/event.",
-            email: {
-              senderName: email.senderName,
-              senderEmail: email.senderEmail,
-              subject: email.subject,
-              snippet: email.snippet,
-              body: email.body,
-              receivedAt: email.receivedAt,
-              isRead: email.isRead,
-              labels: email.labels,
-            },
-          }),
-        },
-      ],
-      text: {
-        format: zodTextFormat(triageSchema, "inboxpilot_email_triage"),
-        verbosity: "low",
-      },
-      max_output_tokens: 700,
-    });
+        max_output_tokens: 450,
+      }),
+    );
 
     const parsed = response.output_parsed as OpenAITriageResponse | null;
 
@@ -195,4 +197,46 @@ export function createTriageService() {
   }
 
   return new OpenAITriageService();
+}
+
+async function withRateLimitRetry<T>(operation: () => Promise<T>) {
+  const delays = [1000, 2500, 5000];
+
+  for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!isRateLimitError(error) || attempt === delays.length) {
+        throw error;
+      }
+
+      await sleep(getRetryDelay(error) ?? delays[attempt]);
+    }
+  }
+
+  return operation();
+}
+
+function isRateLimitError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+
+  const status = "status" in error ? error.status : null;
+  const message = "message" in error ? String(error.message) : "";
+  return status === 429 || /rate limit|tokens per min|tpm/i.test(message);
+}
+
+function getRetryDelay(error: unknown) {
+  if (!error || typeof error !== "object" || !("message" in error)) return null;
+
+  const match = String(error.message).match(/try again in\s+(\d+)ms/i);
+  return match ? Number(match[1]) + 300 : null;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function truncateForPrompt(value: string, maxLength: number) {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength).trim()}...`;
 }
