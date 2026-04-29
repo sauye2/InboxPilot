@@ -11,7 +11,12 @@ import {
 import type { TriagedEmail } from "@/types/triage";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CategoryBadge, PriorityBadge } from "@/components/email/triage-badges";
+import {
+  ActionBadge,
+  CategoryBadge,
+  DeadlineBadge,
+  PriorityBadge,
+} from "@/components/email/triage-badges";
 import { cn } from "@/lib/utils";
 
 type PriorityQueueProps = {
@@ -76,7 +81,7 @@ export function PriorityQueue({
             onPin={onPin}
           />
         ) : (
-          <ScrollArea className="mt-4 h-[610px] pr-3">
+          <ScrollArea className="mt-4 min-h-0 flex-1 pr-3">
             <div className="grid gap-3">
               {items.map((item) => (
                 <QueueItem
@@ -151,16 +156,9 @@ function QueueItem({
       <div className="flex flex-wrap items-center gap-2">
         <CategoryBadge category={triage.category} />
         {triage.deadline ? (
-          <span className="inline-flex items-center gap-1 rounded-md border border-[#f0d7c8] bg-[#fff3eb] px-2 py-0.5 text-xs font-medium text-[#9a4d2c]">
-            <CalendarClock className="size-3" />
-            {triage.deadline}
-          </span>
+          <DeadlineBadge deadline={triage.deadline} icon={<CalendarClock className="size-3" />} />
         ) : null}
-        {triage.requiresAction ? (
-          <span className="rounded-md border border-[#cfe7df] bg-[#e7f1ec] px-2 py-0.5 text-xs font-medium text-[#155f59]">
-            Action
-          </span>
-        ) : null}
+        {triage.requiresAction ? <ActionBadge /> : null}
       </div>
 
       <div className="flex items-center gap-2">
@@ -228,9 +226,7 @@ function EmailFocusView({
           <div className="mt-4 flex flex-wrap gap-2">
             <CategoryBadge category={triage.category} />
             {triage.deadline ? (
-              <span className="rounded-full bg-[#fff3eb] px-3 py-1 text-xs font-medium text-[#9a4d2c]">
-                {triage.deadline}
-              </span>
+              <DeadlineBadge deadline={triage.deadline} />
             ) : null}
           </div>
         </div>
