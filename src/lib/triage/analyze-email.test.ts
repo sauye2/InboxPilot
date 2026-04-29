@@ -84,8 +84,8 @@ describe("analyzeEmail", () => {
         senderName: "Campus Office",
         senderEmail: "office@example.com",
         subject: "Reminder",
-        body: "The form is due May 3.",
-        snippet: "The form is due May 3.",
+        body: "Please review and sign the form. The form is due May 3.",
+        snippet: "Please review and sign the form. The form is due May 3.",
         receivedAt: new Date().toISOString(),
         isRead: true,
         labels: [],
@@ -141,6 +141,137 @@ describe("analyzeEmail", () => {
 
     expect(result.category).toBe("Finance");
     expect(result.requiresAction).toBe(true);
+  });
+
+  it("keeps promotions out of living purchase and event categories", () => {
+    const chatGptPromo = analyzeEmail(
+      {
+        id: "gmail:test-chatgpt-promo",
+        provider: "gmail",
+        senderName: "ChatGPT",
+        senderEmail: "noreply@openai.com",
+        subject: "Stanley, get more done with ChatGPT Pro",
+        body: "Final hours: save up to 40% now.",
+        snippet: "Final hours: save up to 40% now.",
+        receivedAt: new Date().toISOString(),
+        isRead: true,
+        labels: [],
+        threadId: "thread-chatgpt-promo",
+      },
+      "life_admin",
+    );
+    const coinbasePromo = analyzeEmail(
+      {
+        id: "gmail:test-coinbase-promo",
+        provider: "gmail",
+        senderName: "Coinbase",
+        senderEmail: "no-reply@coinbase.com",
+        subject: "Activate your account protection benefit with Coinbase One",
+        body: "Activate your Coinbase One benefit today.",
+        snippet: "Activate your Coinbase One benefit today.",
+        receivedAt: new Date().toISOString(),
+        isRead: true,
+        labels: [],
+        threadId: "thread-coinbase-promo",
+      },
+      "life_admin",
+    );
+
+    expect(chatGptPromo.category).toBe("Inbox Noise");
+    expect(coinbasePromo.category).toBe("Inbox Noise");
+  });
+
+  it("keeps job alerts out of living mode and tooling auth out of recruiting mode", () => {
+    const jobAlertInLiving = analyzeEmail(
+      {
+        id: "gmail:test-jobright-living",
+        provider: "gmail",
+        senderName: "Jobright Job Alert",
+        senderEmail: "alerts@jobright.ai",
+        subject: "Latest Software Engineer jobs you might like",
+        body: "A new job listing matches your profile.",
+        snippet: "Latest Software Engineer jobs you might like.",
+        receivedAt: new Date().toISOString(),
+        isRead: true,
+        labels: [],
+        threadId: "thread-jobright",
+      },
+      "life_admin",
+    );
+    const supabaseInRecruiting = analyzeEmail(
+      {
+        id: "gmail:test-supabase-recruiting",
+        provider: "gmail",
+        senderName: "Supabase Auth",
+        senderEmail: "noreply@supabase.com",
+        subject: "Confirm Your Signup",
+        body: "Confirm your signup for Supabase.",
+        snippet: "Confirm Your Signup",
+        receivedAt: new Date().toISOString(),
+        isRead: true,
+        labels: [],
+        threadId: "thread-supabase",
+      },
+      "job_search",
+    );
+
+    expect(jobAlertInLiving.category).toBe("Inbox Noise");
+    expect(supabaseInRecruiting.category).toBe("Inbox Noise");
+  });
+
+  it("keeps personal codes and finance out of working mode but allows project tooling", () => {
+    const oneTimeCode = analyzeEmail(
+      {
+        id: "gmail:test-g2g-work",
+        provider: "gmail",
+        senderName: "G2G",
+        senderEmail: "noreply@g2g.com",
+        subject: "Your request for OTP:036002",
+        body: "Use this one-time code to sign in.",
+        snippet: "Your request for OTP",
+        receivedAt: new Date().toISOString(),
+        isRead: false,
+        labels: ["UNREAD"],
+        threadId: "thread-g2g",
+      },
+      "work",
+    );
+    const repayment = analyzeEmail(
+      {
+        id: "gmail:test-loan-work",
+        provider: "gmail",
+        senderName: "Aidvantage",
+        senderEmail: "noreply@aidvantage.com",
+        subject: "Your first payment is due soon",
+        body: "Open Aidvantage and check your student loan repayment account.",
+        snippet: "Your first payment is due soon.",
+        receivedAt: new Date().toISOString(),
+        isRead: false,
+        labels: ["UNREAD"],
+        threadId: "thread-loan-work",
+      },
+      "work",
+    );
+    const deployment = analyzeEmail(
+      {
+        id: "gmail:test-vercel-work",
+        provider: "gmail",
+        senderName: "Vercel",
+        senderEmail: "notifications@vercel.com",
+        subject: "Failed production deployment",
+        body: "Failed production deployment on your project. Open the deployment details.",
+        snippet: "Failed production deployment",
+        receivedAt: new Date().toISOString(),
+        isRead: false,
+        labels: ["UNREAD"],
+        threadId: "thread-vercel",
+      },
+      "work",
+    );
+
+    expect(oneTimeCode.category).toBe("Inbox Noise");
+    expect(repayment.category).toBe("Inbox Noise");
+    expect(deployment.category).toBe("Project Updates");
   });
 });
 

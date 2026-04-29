@@ -1,6 +1,6 @@
 import type { EmailMessage } from "@/types/email";
 import type { PriorityLevel, TriageMode, TriageResult } from "@/types/triage";
-import { analyzeEmail, isRelevantToMode } from "@/lib/triage/analyze-email";
+import { analyzeEmail, refineCategoryForMode } from "@/lib/triage/analyze-email";
 import { getModeDefinition } from "@/lib/triage/modes";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
@@ -55,7 +55,7 @@ export class OpenAITriageService implements TriageService {
         {
           role: "system",
           content:
-            "You classify confidential emails for InboxPilot. Return brief, practical triage only. Do not invent facts. Choose the best category from the allowed categories based on the email's real intent, not only literal keywords. Deadlines, due dates, event dates, availability requests, RSVP requests, forms to submit, documents to sign, and any requested reply must raise priority. Any email with a real upcoming deadline or requested response should be at least medium priority; make it high when the deadline is soon, the sender/subject is important, or the action affects work, recruiting, finance, health, security, travel, reservations, or plans. High priority can include non-emergency emails that need a response soon; rank true security, financial, work blockers, boss/manager messages, interviews, offers, and approvals above casual plans. In Life mode, invitations, reservations, concerts, dinners, appointments, and plans belong in Events unless they are pure promotion. If an email asks whether the user is available for a day/date, include that deadline and mark requiresAction true.",
+            "You classify confidential emails for InboxPilot. Return brief, practical triage only. Do not invent facts. Choose the best category from the allowed categories based on the email's real intent, not only literal keywords. Be strict about mode relevance: when an email does not belong to the selected mode, use Inbox Noise, requiresAction false, no deadline, low priority. Promotional emails, newsletters, sale/discount offers, upgrade prompts, feature announcements, job alerts outside Recruiting, and auth/OTP codes outside a directly relevant workflow are Inbox Noise. Purchases must be actual receipts, order confirmations, shipping, tracking, delivery, or purchased service notices, not promotional discounts. Finance must be real financial account, debt, repayment, bill, payment, statement, transaction, or collection messages. Events must be real plans, invitations, reservations, tickets, appointments, or upcoming events, not promotional announcements. Working mode should only contain workplace/team/client/manager/project emails; Vercel/Supabase/GitHub project/deployment/security-project emails may be Project Updates, but signup/auth/OTP/promotional emails are Inbox Noise. Deadlines, due dates, event dates, availability requests, RSVP requests, forms to submit, documents to sign, and any requested reply must raise priority only when the email is mode-relevant.",
         },
         {
           role: "user",
@@ -63,7 +63,7 @@ export class OpenAITriageService implements TriageService {
             mode: modeDefinition.shortLabel,
             allowedCategories: modeDefinition.categories,
             relevancePolicy:
-              "If the email is not relevant to the selected mode, classify it as Inbox Noise even if it has deadlines or actions. Recruiting mode should only include job search/recruiting/application/interview/offer/assessment emails. Working mode should only include workplace, team, manager, client, meeting, project, approval, or document-review emails. Living mode should include personal admin, finance, appointments, purchases, reservations, events, travel, security, documents, and personal replies.",
+              "If the email is not relevant to the selected mode, classify it as Inbox Noise even if it has deadlines or actions. Recruiting mode should only include job search/recruiting/application/interview/offer/assessment emails. Working mode should only include workplace, team, manager, client, meeting, project, approval, document-review, or coding-project operations emails. Living mode should include personal admin, finance, appointments, actual purchases, reservations, events, travel, security, documents, and personal replies. Promo and marketing emails are Inbox Noise unless they confirm a real existing purchase/reservation/event.",
             email: {
               senderName: email.senderName,
               senderEmail: email.senderEmail,
@@ -132,12 +132,13 @@ function normalizeTriageResult({
   const parsedCategoryLooksLikeNoise = parsed.category === "Inbox Noise";
   const localHasUsefulCategory =
     localResult.category !== "Inbox Noise" && allowedCategories.includes(localResult.category);
-  const category =
+  const candidateCategory =
     !parsedCategoryAllowed ||
     (parsedCategoryLooksLikeNoise && (deadline || requiresAction) && localHasUsefulCategory)
       ? localResult.category
       : parsed.category;
-  const relevantToMode = isRelevantToMode(text, mode, category);
+  const category = refineCategoryForMode(text, mode, candidateCategory);
+  const relevantToMode = category !== "Inbox Noise";
   const effectiveDeadline = relevantToMode ? deadline : null;
   const effectiveRequiresAction = relevantToMode && requiresAction;
   const priority = enforceDeadlinePriority({

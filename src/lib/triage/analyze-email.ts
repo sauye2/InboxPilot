@@ -20,8 +20,8 @@ export function analyzeEmail(
   const actionHits = actionPhrases.filter((phrase) => text.includes(phrase));
   const urgentHits = urgentPhrases.filter((phrase) => text.includes(phrase));
   const detectedCategory = detectCategory(text, mode);
-  const relevantToMode = isRelevantToMode(text, mode, detectedCategory);
-  const category = relevantToMode ? detectedCategory : "Inbox Noise";
+  const category = refineCategoryForMode(text, mode, detectedCategory);
+  const relevantToMode = category !== "Inbox Noise";
 
   let score = 1;
   score += actionHits.length > 0 ? 2 : 0;
@@ -51,10 +51,10 @@ export function analyzeEmail(
     category,
     requiresAction,
     deadline: effectiveDeadline,
-    actionSummary: buildActionSummary(category, requiresAction, deadline),
-    reason: buildReason({ requiresAction, deadline, urgentHits, category, priority }),
+    actionSummary: buildActionSummary(category, requiresAction, effectiveDeadline),
+    reason: buildReason({ requiresAction, deadline: effectiveDeadline, urgentHits, category, priority }),
     confidence: Number(confidence.toFixed(2)),
-    suggestedNextAction: buildSuggestedNextAction(category, requiresAction, deadline, text),
+    suggestedNextAction: buildSuggestedNextAction(category, requiresAction, effectiveDeadline, text),
     reviewed: reviewState?.reviewed ?? false,
     pinned: reviewState?.pinned ?? false,
     snoozedUntil: reviewState?.snoozedUntil ?? null,
@@ -62,29 +62,135 @@ export function analyzeEmail(
 }
 
 export function isRelevantToMode(text: string, mode: TriageMode, category: string) {
-  if (category === "Inbox Noise") return false;
+  return refineCategoryForMode(text, mode, category) !== "Inbox Noise";
+}
+
+export function refineCategoryForMode(text: string, mode: TriageMode, category: string) {
+  if (category === "Inbox Noise") return "Inbox Noise";
 
   const normalized = text.toLowerCase();
 
   if (mode === "job_search") {
-    return [
-      /\b(job|career|careers|recruiter|recruiting|talent|candidate|application|applied|interview|assessment|take-home|coding exercise|role|position)\b/,
-      /\b(offer|compensation|benefits)\b.*\b(job|role|position|candidate|employment|start date)\b/,
-      /\b(software engineer|product engineer|internship|intern)\b/,
-    ].some((pattern) => pattern.test(normalized));
+    if (isAuthCodeNoise(normalized) || isNonJobTooling(normalized)) return "Inbox Noise";
+    if (isJobSearchText(normalized)) return category;
+    return "Inbox Noise";
   }
 
   if (mode === "work") {
-    return [
-      /\b(work|manager|boss|lead|team|client|stakeholder|project|approval|approve|brief|document|meeting|agenda|calendar|deadline|blocked|sign-off|status update)\b/,
-      /\b(q[1-4]|launch|roadmap|sprint|standup|review)\b/,
-    ].some((pattern) => pattern.test(normalized));
+    if (
+      isAuthCodeNoise(normalized) ||
+      isPromotionalNoise(normalized) ||
+      isPersonalFinance(normalized) ||
+      isPersonalPurchase(normalized)
+    ) {
+      return "Inbox Noise";
+    }
+    if (isVibeCodingWork(normalized)) return "Project Updates";
+    if (category === "Manager" && !/\b(manager|boss|lead|director|supervisor)\b/.test(normalized)) {
+      return "Inbox Noise";
+    }
+    if (category === "Clients" && !/\b(client|stakeholder|customer|account team)\b/.test(normalized)) {
+      return "Inbox Noise";
+    }
+    if (isWorkText(normalized)) return category;
+    return "Inbox Noise";
   }
 
+  if (isJobSearchText(normalized) || isPromotionalNoise(normalized) || isAuthCodeNoise(normalized)) {
+    return "Inbox Noise";
+  }
+
+  if (category === "Purchases") {
+    return isActualPurchase(normalized) ? "Purchases" : "Inbox Noise";
+  }
+
+  if (category === "Finance") {
+    return isPersonalFinance(normalized) ? "Finance" : "Inbox Noise";
+  }
+
+  if (category === "Events") {
+    return isRealEvent(normalized) ? "Events" : "Inbox Noise";
+  }
+
+  return isLifeText(normalized) ? category : "Inbox Noise";
+}
+
+function isJobSearchText(text: string) {
   return [
-    /\b(bank|card|transaction|payment|bill|invoice|account|security|password|sign-in|appointment|clinic|medical|doctor|dentist|order|delivery|package|reservation|event|ticket|dinner|invite|invitation|rsvp|travel|flight|hotel|form|document|sign|paperwork)\b/,
+      /\b(job|career|careers|recruiter|recruiting|talent|candidate|application|applied|interview|assessment|take-home|coding exercise|role|position)\b/,
+      /\b(offer|compensation|benefits)\b.*\b(job|role|position|candidate|employment|start date)\b/,
+      /\b(software engineer|product engineer|internship|intern)\b/,
+      /\b(hiring|job alert|jobs you might like|match from|remote role)\b/,
+    ].some((pattern) => pattern.test(text));
+}
+
+function isWorkText(text: string) {
+  return [
+    /\b(work|workplace|manager|boss|lead|team|client|stakeholder|project|approval|approve|brief|document|meeting|agenda|calendar invite|blocked|sign-off|status update)\b/,
+    /\b(q[1-4]|launch|roadmap|sprint|standup|pull request|deployment|production|build failed|incident|repository)\b/,
+    /\b(vercel|supabase|github|linear|jira)\b.*\b(project|deployment|production|build|database|security vulnerabilities|row-level security|repository)\b/,
+  ].some((pattern) => pattern.test(text));
+}
+
+function isLifeText(text: string) {
+  return [
+    /\b(bank|card|transaction|payment|bill|invoice|repayment|loan|debt|credit|collection|security|password|sign-in|appointment|clinic|medical|doctor|dentist|order|delivery|package|reservation|event|ticket|dinner|invite|invitation|rsvp|travel|flight|hotel|form|forms|document|sign|paperwork)\b/,
     /\b(are you available|let me know|plans|this friday|tomorrow|today)\b/,
-  ].some((pattern) => pattern.test(normalized));
+  ].some((pattern) => pattern.test(text));
+}
+
+function isPromotionalNoise(text: string) {
+  if (isJobSearchText(text)) return false;
+  return [
+    /\b(promo|promotion|promotional|newsletter|digest|highlights|sale|discount|save up to|final hours|upgrade|pro plan|subscribe|unsubscribe|limited time|eligible for an interest rate reduction)\b/,
+    /\b(activate your .* benefit|new features?|what'?s new|just dropped)\b/,
+  ].some((pattern) => pattern.test(text));
+}
+
+function isAuthCodeNoise(text: string) {
+  return /\b(otp|one[- ]time code|verification code|login code|security code|request for otp)\b/.test(text);
+}
+
+function isActualPurchase(text: string) {
+  if (isPromotionalNoise(text) || isJobSearchText(text)) return false;
+  return [
+    /\b(receipt|order confirmation|order number|purchase confirmation|payment receipt|parking receipt)\b/,
+    /\b(shipped|shipping|delivery|tracking|package|delivered|return label)\b/,
+    /\b(thank you for your order|your order|your purchase)\b/,
+  ].some((pattern) => pattern.test(text));
+}
+
+function isPersonalFinance(text: string) {
+  if (isPromotionalNoise(text)) return false;
+  return [
+    /\b(bank|credit card|debit card|transaction|payment|bill|invoice|repayment|loan|debt|credit and collection|collections|auto pay|statement|tax|refund)\b/,
+    /\b(aidvantage|federal student aid|chase|coinbase|atlas bank|nationwide credit)\b.*\b(payment|account|transaction|debt|repayment|loan|statement)\b/,
+  ].some((pattern) => pattern.test(text));
+}
+
+function isRealEvent(text: string) {
+  if (isPromotionalNoise(text)) return false;
+  return [
+    /\b(dinner|lunch|plans|rsvp|invite|invitation|are you available|let me know|reservation|appointment)\b/,
+    /\b(event|ticket|concert|show|game|flight|hotel)\b.*\b(confirmed|confirmation|upcoming|reminder|starts|scheduled|reservation)\b/,
+  ].some((pattern) => pattern.test(text));
+}
+
+function isPersonalPurchase(text: string) {
+  return isActualPurchase(text) || /\b(order|purchase|receipt|package|delivery|tracking)\b/.test(text);
+}
+
+function isVibeCodingWork(text: string) {
+  if (/\b(signup|sign up|confirm your signup|authentication|auth|otp|one[- ]time code)\b/.test(text)) {
+    return false;
+  }
+  return /\b(vercel|supabase|github)\b.*\b(project|deployment|production|build|database|row-level security|security vulnerabilities|repository)\b/.test(
+    text,
+  );
+}
+
+function isNonJobTooling(text: string) {
+  return /\b(vercel|supabase|github|chatgpt|openai|g2g|ubisoft|coinbase|aidvantage|chase)\b/.test(text);
 }
 
 function enforceDeadlinePriority(

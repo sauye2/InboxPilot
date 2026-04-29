@@ -64,7 +64,7 @@ export const modeCategoryKeywords: Record<TriageMode, Record<string, string[]>> 
     Reservations: ["reservation", "confirmed for", "cancel"],
     Events: ["event", "reminder", "ticket", "dinner", "invite", "invitation", "available", "rsvp", "plans"],
     Finance: ["bank", "card", "transaction", "account", "bill", "invoice", "late fee", "payment"],
-    Documents: ["document", "sign", "paperwork", "forms"],
+    Documents: ["document", "sign", "paperwork", "form", "forms"],
     "Inbox Noise": ["no signature is required", "no action is required", "newsletter", "highlights"],
   },
 };

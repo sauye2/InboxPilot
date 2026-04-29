@@ -28,51 +28,63 @@ const triageRequestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) {
+    if (!user) {
+      return NextResponse.json(
+        { error: "Sign in before running cloud triage." },
+        { status: 401 },
+      );
+    }
+
+    const payload = triageRequestSchema.safeParse(await request.json());
+
+    if (!payload.success) {
+      return NextResponse.json(
+        { error: "Invalid triage request.", details: payload.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const { emails, mode, useOpenAI } = payload.data;
+    const service = useOpenAI ? createTriageService() : new LocalTriageService();
+    const provider = useOpenAI && process.env.OPENAI_API_KEY ? "openai" : "local";
+    const items = await Promise.all(
+      emails.map(async (email) => ({
+        email: email as EmailMessage,
+        triage: await service.analyzeEmail(email as EmailMessage, mode),
+      })),
+    );
+
+    items.sort(compareTriagedEmail);
+    const persisted = await persistTriagedInbox({
+      admin: createSupabaseAdminClient(),
+      userId: user.id,
+      mode,
+      items,
+      modelProvider: provider,
+      modelName: provider === "openai" ? process.env.OPENAI_TRIAGE_MODEL ?? "gpt-5.4-mini" : null,
+    });
+
+    return NextResponse.json({
+      provider,
+      items: persisted.items,
+      summary: summarizeInbox(persisted.items),
+      taskEmailIds: persisted.taskEmailIds,
+    });
+  } catch (error) {
     return NextResponse.json(
-      { error: "Sign in before running cloud triage." },
-      { status: 401 },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to run scan. Please try again.",
+      },
+      { status: 500 },
     );
   }
-
-  const payload = triageRequestSchema.safeParse(await request.json());
-
-  if (!payload.success) {
-    return NextResponse.json(
-      { error: "Invalid triage request.", details: payload.error.flatten() },
-      { status: 400 },
-    );
-  }
-
-  const { emails, mode, useOpenAI } = payload.data;
-  const service = useOpenAI ? createTriageService() : new LocalTriageService();
-  const provider = useOpenAI && process.env.OPENAI_API_KEY ? "openai" : "local";
-  const items = await Promise.all(
-    emails.map(async (email) => ({
-      email: email as EmailMessage,
-      triage: await service.analyzeEmail(email as EmailMessage, mode),
-    })),
-  );
-
-  items.sort(compareTriagedEmail);
-  const persisted = await persistTriagedInbox({
-    admin: createSupabaseAdminClient(),
-    userId: user.id,
-    mode,
-    items,
-    modelProvider: provider,
-    modelName: provider === "openai" ? process.env.OPENAI_TRIAGE_MODEL ?? "gpt-5.4-mini" : null,
-  });
-
-  return NextResponse.json({
-    provider,
-    items: persisted.items,
-    summary: summarizeInbox(persisted.items),
-    taskEmailIds: persisted.taskEmailIds,
-  });
 }

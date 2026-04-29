@@ -74,18 +74,38 @@ export function DashboardClient({
     };
   }, [activeEmails, mode, openAIItems, reviewState]);
 
+  const visibleSummary = useMemo(
+    () =>
+      hasRun
+        ? analyzed.summary
+        : {
+            totalEmails: 0,
+            actionRequiredCount: 0,
+            highPriorityCount: 0,
+            upcomingDeadlineCount: 0,
+            unreadImportantCount: 0,
+            topCategories: [],
+          },
+    [analyzed.summary, hasRun],
+  );
+
+  const visibleItems = useMemo(
+    () => (hasRun ? analyzed.items : []),
+    [analyzed.items, hasRun],
+  );
+
   const categoryCounts = useMemo(
     () =>
-      analyzed.items.reduce<Record<string, number>>((acc, item) => {
+      visibleItems.reduce<Record<string, number>>((acc, item) => {
         acc[item.triage.category] = (acc[item.triage.category] ?? 0) + 1;
         return acc;
       }, {}),
-    [analyzed.items],
+    [visibleItems],
   );
 
   const filteredItems = useMemo(
     () =>
-      analyzed.items
+      visibleItems
         .filter((item) => {
           if (selectedFilter === "scanned") return true;
           if (selectedFilter === "needs_action") return item.triage.requiresAction;
@@ -93,7 +113,7 @@ export function DashboardClient({
           return item.triage.category === selectedFilter;
         })
         .sort(sortItems),
-    [analyzed.items, selectedFilter],
+    [visibleItems, selectedFilter],
   );
 
   function getOpenAIConsentPreference(): OpenAIConsentPreference {
@@ -123,7 +143,7 @@ export function DashboardClient({
 
       if (source === "gmail") {
         const response = await fetch("/api/email-providers/gmail/messages");
-        const payload = await response.json();
+        const payload = await readJsonResponse(response);
 
         if (!response.ok) {
           throw new Error(payload.error ?? "Unable to fetch Gmail messages.");
@@ -141,7 +161,7 @@ export function DashboardClient({
           useOpenAI,
         }),
       });
-      const payload = await response.json();
+      const payload = await readJsonResponse(response);
 
       if (!response.ok) {
         throw new Error(payload.error ?? "Scan failed.");
@@ -334,7 +354,7 @@ export function DashboardClient({
               <ScanningState />
             ) : (
               <SummaryCards
-                summary={analyzed.summary}
+                summary={visibleSummary}
                 mode={mode}
                 selectedFilter={selectedFilter}
                 categoryCounts={categoryCounts}
@@ -660,4 +680,22 @@ function ScanningState() {
 
 function sortItems(a: TriagedEmail, b: TriagedEmail) {
   return compareTriagedEmail(a, b);
+}
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {
+      error: response.ok
+        ? "The server returned an unreadable response."
+        : "The scan service returned an unreadable error. Please try again.",
+    };
+  }
 }
