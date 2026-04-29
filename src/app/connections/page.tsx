@@ -3,26 +3,54 @@ import { ArrowRight, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const providers = [
   {
     name: "Gmail",
-    detail: "Planned Gmail API OAuth adapter. Not enabled in this local MVP.",
-    status: "Coming soon",
+    detail: "Read-only Gmail OAuth is available for signed-in users. Tokens are not persisted until encrypted storage is added.",
+    status: "Read-only beta",
+    href: "/api/email-providers/gmail/start",
+    disabled: false,
   },
   {
     name: "Outlook / Microsoft 365",
     detail: "Planned Microsoft Graph adapter. Not enabled in this local MVP.",
     status: "Coming soon",
+    disabled: true,
   },
   {
     name: "Yahoo Mail",
     detail: "Planned provider-specific or IMAP adapter after security review.",
     status: "Coming soon",
+    disabled: true,
   },
 ];
 
-export default function ConnectionsPage() {
+type ConnectionsPageProps = {
+  searchParams: Promise<{
+    message?: string;
+  }>;
+};
+
+export default async function ConnectionsPage({ searchParams }: ConnectionsPageProps) {
+  const [{ message }, supabase] = await Promise.all([
+    searchParams,
+    createSupabaseServerClient(),
+  ]);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: connections } = user
+    ? await supabase
+        .from("email_connections")
+        .select("provider, provider_account_email, status")
+        .eq("user_id", user.id)
+    : { data: [] };
+  const connectionByProvider = new Map(
+    (connections ?? []).map((connection) => [connection.provider, connection]),
+  );
+
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-[1320px] px-4 py-8 sm:px-6 lg:py-12">
@@ -32,13 +60,18 @@ export default function ConnectionsPage() {
               Connection center
             </Badge>
             <h1 className="mt-5 max-w-3xl text-5xl font-semibold leading-none tracking-normal sm:text-7xl">
-              Sign in paths are planned, not active.
+              Connect only what you choose.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/64">
-              InboxPilot will eventually let users explicitly connect a mailbox.
-              This MVP does not connect, import, retain, or store any real email
-              data. The dashboard uses mock messages only.
+              InboxPilot now supports the first Gmail OAuth path for signed-in
+              users. This first pass requests read-only access and does not store
+              full email bodies by default.
             </p>
+            {message ? (
+              <div className="mt-6 rounded-lg border border-[#8bd3c7]/20 bg-[#8bd3c7]/12 px-4 py-3 text-sm text-[#8bd3c7]">
+                {message}
+              </div>
+            ) : null}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/dashboard"
@@ -76,41 +109,63 @@ export default function ConnectionsPage() {
             </div>
             <div className="mt-6 grid gap-3 text-sm leading-6 text-white/68">
               <p>No OAuth credentials are requested.</p>
-              <p>No real mailbox is fetched.</p>
-              <p>No email body is stored by this website.</p>
+              <p>Gmail requires explicit Google consent.</p>
+              <p>No full email body is retained by default.</p>
               <p>Mock data powers the current triage experience.</p>
             </div>
           </div>
         </section>
 
         <section className="mt-8 grid gap-4 md:grid-cols-3">
-          {providers.map((provider) => (
-            <article
-              key={provider.name}
-              className="liquid-glass rounded-2xl border-black/10 bg-white/66 p-5"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="flex size-11 items-center justify-center rounded-lg bg-[#e7f1ec]">
-                  <Mail className="size-5 text-[#0e6f68]" />
-                </span>
-                <Badge className="bg-[#ede9df] text-[#4a504d] hover:bg-[#ede9df]">
-                  {provider.status}
-                </Badge>
-              </div>
-              <h2 className="mt-5 text-xl font-semibold text-[#141817]">
-                {provider.name}
-              </h2>
-              <p className="mt-3 min-h-16 text-sm leading-6 text-[#4a504d]">
-                {provider.detail}
-              </p>
-              <button
-                disabled
-                className="mt-5 flex h-11 w-full items-center justify-center rounded-md border border-black/10 bg-[#ede9df]/70 text-sm font-medium text-[#7d8680]"
+          {providers.map((provider) => {
+            const connection = connectionByProvider.get(
+              provider.name === "Gmail" ? "gmail" : "",
+            );
+            const isConnected = connection?.status === "connected";
+
+            return (
+              <article
+                key={provider.name}
+                className="liquid-glass rounded-2xl border-black/10 bg-white/66 p-5"
               >
-                Sign in unavailable
-              </button>
-            </article>
-          ))}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex size-11 items-center justify-center rounded-lg bg-[#e7f1ec]">
+                    <Mail className="size-5 text-[#0e6f68]" />
+                  </span>
+                  <Badge className="bg-[#ede9df] text-[#4a504d] hover:bg-[#ede9df]">
+                    {isConnected ? "Connected" : provider.status}
+                  </Badge>
+                </div>
+                <h2 className="mt-5 text-xl font-semibold text-[#141817]">
+                  {provider.name}
+                </h2>
+                <p className="mt-3 min-h-16 text-sm leading-6 text-[#4a504d]">
+                  {isConnected
+                    ? `Connected as ${connection.provider_account_email}`
+                    : provider.detail}
+                </p>
+                {provider.disabled ? (
+                  <button
+                    disabled
+                    className="mt-5 flex h-11 w-full items-center justify-center rounded-md border border-black/10 bg-[#ede9df]/70 text-sm font-medium text-[#7d8680]"
+                  >
+                    Sign in unavailable
+                  </button>
+                ) : (
+                  <Link
+                    href={user ? provider.href ?? "#" : "/login?next=/connections"}
+                    className={buttonVariants({
+                      size: "lg",
+                      className:
+                        "mt-5 h-11 w-full bg-[#141817] text-[#f7f6f1] hover:bg-[#27302d]",
+                    })}
+                  >
+                    {isConnected ? "Reconnect Gmail" : "Connect Gmail"}
+                  </Link>
+                )}
+              </article>
+            );
+          })}
         </section>
 
         <section className="liquid-glass mt-8 rounded-2xl border-[#0e6f68]/20 bg-[#e7f1ec]/74 p-5 text-[#155f59]">

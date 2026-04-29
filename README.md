@@ -125,12 +125,36 @@ Key files:
 Current implementation:
 
 - `MockEmailProviderAdapter`
+- Gmail OAuth read-only connection metadata
 
 Future implementations:
 
-- `GmailProviderAdapter`
 - `OutlookProviderAdapter`
 - `YahooProviderAdapter`
+
+## Gmail OAuth Setup
+
+The first Gmail path uses the read-only scope:
+
+```txt
+https://www.googleapis.com/auth/gmail.readonly
+```
+
+Google Cloud OAuth client redirect URI:
+
+```txt
+https://inboxpilot-sa.vercel.app/api/email-providers/gmail/callback
+```
+
+Environment variables:
+
+```bash
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_GMAIL_REDIRECT_URI=https://inboxpilot-sa.vercel.app/api/email-providers/gmail/callback
+```
+
+This first pass stores connection metadata in Supabase. Token persistence is intentionally deferred until encrypted token storage is added.
 
 ## Security And Privacy Notes
 
