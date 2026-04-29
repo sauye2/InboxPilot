@@ -17,8 +17,9 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
         <span
           className="absolute bottom-1 top-1 rounded-lg border border-white/70 bg-[#fffdf7]/92 shadow-lg shadow-black/10 transition-transform duration-300 ease-out"
           style={{
+            left: "0.25rem",
             width: "calc((100% - 0.5rem) / 3)",
-            transform: `translateX(calc(${activeIndex < 0 ? 0 : activeIndex} * 100%))`,
+            transform: `translateX(calc(${activeIndex < 0 ? 0 : activeIndex} * ((100% - 0.5rem) / 3)))`,
           }}
         />
         {modeDefinitions.map((mode) => {
