@@ -1,7 +1,13 @@
 import Link from "next/link";
-import { LogIn, LogOut, Plane, Settings, ShieldCheck, Unplug } from "lucide-react";
+import { LogIn, Plane, Settings, ShieldCheck, User, Unplug } from "lucide-react";
 import { signOutAction } from "@/app/auth/actions";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function SiteHeader() {
@@ -63,20 +69,34 @@ export async function SiteHeader() {
         </nav>
 
         {user ? (
-          <form action={signOutAction} className="flex items-center gap-2">
-            <div className="hidden max-w-[220px] truncate rounded-full border border-[#0e6f68]/20 bg-[#e7f1ec] px-3 py-1.5 text-xs font-medium text-[#155f59] sm:block">
-              {user.email}
-            </div>
-            <Button
-              type="submit"
-              variant="outline"
-              size="sm"
-              className="border-black/10 bg-white/50 text-[#4a504d] hover:bg-white/80"
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Open account menu"
+              className="flex size-10 items-center justify-center rounded-full border border-[#d8d1c4] bg-[#fffdf7] text-[#141817] shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#0e6f68]/20"
             >
-              <LogOut className="size-3.5" />
-              <span className="hidden sm:inline">Sign out</span>
-            </Button>
-          </form>
+              <User className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={10}
+              className="liquid-glass w-56 rounded-2xl border-black/10 bg-[#fffdf7]/92 p-2 text-[#141817] shadow-2xl shadow-black/15"
+            >
+              <div className="rounded-xl bg-[#ede9df]/82 px-4 py-3">
+                <p className="text-sm font-semibold leading-5">Signed in</p>
+                <p className="mt-0.5 truncate text-xs text-[#68716d]">
+                  {user.email}
+                </p>
+              </div>
+              <form action={signOutAction}>
+                <DropdownMenuItem
+                  className="mt-1 h-10 cursor-pointer rounded-xl px-4 font-semibold text-[#141817] focus:bg-[#ede9df]"
+                  render={<button type="submit" className="w-full text-left" />}
+                >
+                  Sign out
+                </DropdownMenuItem>
+              </form>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : (
           <div className="flex items-center gap-2">
             <div className="hidden items-center gap-2 rounded-full border border-[#0e6f68]/20 bg-[#e7f1ec] px-3 py-1.5 text-xs font-medium text-[#155f59] lg:flex">
