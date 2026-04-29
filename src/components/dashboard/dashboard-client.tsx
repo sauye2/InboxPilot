@@ -342,7 +342,8 @@ function OpenAIConsentDialog({
         <p className="mt-4 text-sm leading-6 text-[#4a504d]">
           InboxPilot can send selected message metadata, snippets, and available
           body text to OpenAI to classify priority and draft concise next steps.
-          You can continue with local rules if you prefer.
+          Opting in is recommended for better, more accurate parsing. You can
+          continue with local rules if you prefer.
         </p>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           <Button
