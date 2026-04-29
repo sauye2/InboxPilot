@@ -201,7 +201,13 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
                 actions that matter visible without connecting a real inbox.
               </p>
             </div>
-            <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3">
+            <div
+              style={{
+                position: "absolute",
+                right: "0.75rem",
+                bottom: "0.75rem",
+              }}
+            >
               <Button
                 size="lg"
                 onClick={runScan}
