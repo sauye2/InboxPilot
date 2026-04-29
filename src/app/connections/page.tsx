@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, LockKeyhole, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,30 @@ const providers = [
     disabled: true,
   },
 ];
+
+const providerLogoAssets: Record<
+  string,
+  { src: string; alt: string; imageClassName: string; frameClassName: string }
+> = {
+  Gmail: {
+    src: "/provider-logos/gmail.svg",
+    alt: "Gmail logo",
+    imageClassName: "h-7 w-9 object-contain",
+    frameClassName: "bg-white/78",
+  },
+  "Outlook / Microsoft 365": {
+    src: "/provider-logos/outlook.svg",
+    alt: "Microsoft Outlook logo",
+    imageClassName: "size-9 object-contain",
+    frameClassName: "bg-white/78",
+  },
+  "Yahoo Mail": {
+    src: "/provider-logos/yahoo-mail.svg",
+    alt: "Yahoo Mail logo",
+    imageClassName: "size-9 rounded-lg object-cover",
+    frameClassName: "bg-white/74 p-1",
+  },
+};
 
 type ConnectionsPageProps = {
   searchParams: Promise<{
@@ -129,7 +154,11 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
                 className="liquid-glass rounded-2xl border-black/10 bg-white/66 p-5"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="flex size-12 items-center justify-center rounded-xl bg-white/70 shadow-sm ring-1 ring-black/5">
+                  <span
+                    className={`flex size-12 items-center justify-center rounded-xl shadow-sm ring-1 ring-black/5 ${
+                      providerLogoAssets[provider.name]?.frameClassName ?? "bg-white/78"
+                    }`}
+                  >
                     <ProviderLogo name={provider.name} />
                   </span>
                   <Badge className="bg-[#ede9df] text-[#4a504d] hover:bg-[#ede9df]">
@@ -184,100 +213,14 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
 }
 
 function ProviderLogo({ name }: { name: string }) {
-  if (name === "Gmail") {
-    return (
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 48 48"
-        className="size-8"
-        role="img"
-      >
-        <path
-          fill="#4285f4"
-          d="M8 39h7V21.5L5 14v22c0 1.7 1.3 3 3 3Z"
-        />
-        <path
-          fill="#34a853"
-          d="M33 39h7c1.7 0 3-1.3 3-3V14l-10 7.5V39Z"
-        />
-        <path
-          fill="#fbbc04"
-          d="M33 14v7.5L43 14v-2.5c0-3.8-4.3-6-7.4-3.7L33 9.8V14Z"
-        />
-        <path
-          fill="#ea4335"
-          d="M15 21.5V14l9 6.8 9-6.8V9.8l-9 6.8-9-6.8V14Z"
-        />
-        <path
-          fill="#c5221f"
-          d="M5 11.5V14l10 7.5V14l-2.6-2.2C9.3 9.5 5 7.7 5 11.5Z"
-        />
-      </svg>
-    );
-  }
-
-  if (name.startsWith("Outlook")) {
-    return (
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 48 48"
-        className="size-8"
-        role="img"
-      >
-        <defs>
-          <linearGradient id="outlookBack" x1="8" x2="42" y1="9" y2="39">
-            <stop stopColor="#37d5ff" />
-            <stop offset="0.48" stopColor="#2a7be4" />
-            <stop offset="1" stopColor="#2535c7" />
-          </linearGradient>
-          <linearGradient id="outlookFront" x1="7" x2="26" y1="17" y2="39">
-            <stop stopColor="#159bf3" />
-            <stop offset="1" stopColor="#1845b7" />
-          </linearGradient>
-        </defs>
-        <path
-          fill="url(#outlookBack)"
-          d="M18.2 7.4h19.2c3 0 5.4 2.4 5.4 5.4v22.4c0 3-2.4 5.4-5.4 5.4H18.2c-3 0-5.4-2.4-5.4-5.4V12.8c0-3 2.4-5.4 5.4-5.4Z"
-          transform="rotate(-35 27.8 24)"
-        />
-        <path
-          fill="#5bd7ef"
-          opacity="0.72"
-          d="M13 15.7 24 24l-11 8.3V15.7Z"
-        />
-        <path
-          fill="#0b8fe8"
-          opacity="0.75"
-          d="M43 15.7 28 24l15 8.3V15.7Z"
-        />
-        <rect
-          x="5"
-          y="18"
-          width="21"
-          height="22"
-          rx="4"
-          fill="url(#outlookFront)"
-        />
-        <path
-          fill="#fff"
-          d="M15.4 34.8c-4 0-6.8-3.1-6.8-7.1s2.8-7.1 6.8-7.1 6.8 3.1 6.8 7.1-2.8 7.1-6.8 7.1Zm0-3.1c2 0 3.3-1.6 3.3-4s-1.3-4-3.3-4-3.3 1.6-3.3 4 1.3 4 3.3 4Z"
-        />
-      </svg>
-    );
-  }
-
+  const logo = providerLogoAssets[name] ?? providerLogoAssets.Gmail;
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 48 48"
-      className="size-8"
-      role="img"
-    >
-      <rect width="48" height="48" rx="12" fill="#5f01d1" />
-      <path
-        fill="#fff"
-        d="M13.5 14h6.1l4.3 8.1L28.2 14h6L26.7 27.2V35h-5.6v-7.8L13.5 14Zm21.1 14.8h-5.2L30.1 14h6.2l-1.7 14.8Zm-5.4 6.2c0-1.8 1.3-3.1 3.1-3.1 1.7 0 3 1.3 3 3.1 0 1.7-1.3 3-3 3-1.8 0-3.1-1.3-3.1-3Z"
-      />
-    </svg>
+    <Image
+      src={logo.src}
+      alt={logo.alt}
+      width={40}
+      height={40}
+      className={logo.imageClassName}
+    />
   );
 }
