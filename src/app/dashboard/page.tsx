@@ -13,9 +13,17 @@ export default async function DashboardPage() {
     redirect("/login?next=/dashboard");
   }
 
+  const { data: gmailConnection } = await supabase
+    .from("email_connections")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("provider", "gmail")
+    .eq("status", "connected")
+    .maybeSingle();
+
   return (
     <AppShell>
-      <DashboardClient />
+      <DashboardClient hasGmailConnection={Boolean(gmailConnection)} />
     </AppShell>
   );
 }

@@ -2,29 +2,61 @@
 
 import { useMemo, useState } from "react";
 import { CheckCircle2, Loader2, Play, ShieldCheck } from "lucide-react";
+import type { EmailMessage } from "@/types/email";
 import type { TriageMode, TriageResult, TriagedEmail } from "@/types/triage";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ModeSelector } from "@/components/dashboard/mode-selector";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { PriorityQueue } from "@/components/email/priority-queue";
-import { analyzeInbox } from "@/lib/triage/analyze-inbox";
+import { analyzeInbox, summarizeInbox } from "@/lib/triage/analyze-inbox";
 import { mockEmails } from "@/lib/mock/mock-emails";
 import { priorityWeights } from "@/lib/triage/rules";
 
-export function DashboardClient() {
+type InboxSource = "mock" | "gmail";
+
+type DashboardClientProps = {
+  hasGmailConnection?: boolean;
+};
+
+export function DashboardClient({ hasGmailConnection = false }: DashboardClientProps) {
   const [mode, setMode] = useState<TriageMode>("job_search");
   const [hasRun, setHasRun] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [source, setSource] = useState<InboxSource>("mock");
+  const [activeEmails, setActiveEmails] = useState<EmailMessage[]>(mockEmails);
+  const [openAIItems, setOpenAIItems] = useState<TriagedEmail[] | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [showConsent, setShowConsent] = useState(false);
+  const [pendingScan, setPendingScan] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>("needs_action");
   const [taskIds, setTaskIds] = useState<string[]>([]);
   const [reviewState, setReviewState] = useState<Record<string, Partial<TriageResult>>>({});
 
-  const analyzed = useMemo(
-    () => analyzeInbox(mockEmails, mode, reviewState),
-    [mode, reviewState],
-  );
+  const analyzed = useMemo(() => {
+    if (!openAIItems) {
+      return analyzeInbox(activeEmails, mode, reviewState);
+    }
+
+    const items = openAIItems
+      .map((item) => ({
+        ...item,
+        triage: {
+          ...item.triage,
+          reviewed: reviewState[item.email.id]?.reviewed ?? item.triage.reviewed,
+          pinned: reviewState[item.email.id]?.pinned ?? item.triage.pinned,
+          snoozedUntil:
+            reviewState[item.email.id]?.snoozedUntil ?? item.triage.snoozedUntil,
+        },
+      }))
+      .sort(sortItems);
+
+    return {
+      items,
+      summary: summarizeInbox(items),
+    };
+  }, [activeEmails, mode, openAIItems, reviewState]);
 
   const categoryCounts = useMemo(
     () =>
@@ -47,13 +79,69 @@ export function DashboardClient() {
     [analyzed.items, selectedFilter],
   );
 
-  function runTriage() {
+  function hasOpenAIConsent() {
+    return window.localStorage.getItem("inboxpilot-openai-email-consent") === "accepted";
+  }
+
+  function runScan() {
+    if (!hasOpenAIConsent()) {
+      setPendingScan(true);
+      setShowConsent(true);
+      return;
+    }
+
+    void executeScan(true);
+  }
+
+  async function executeScan(useOpenAI: boolean) {
     setIsScanning(true);
-    window.setTimeout(() => {
+    setScanError(null);
+
+    try {
+      let emails = source === "mock" ? mockEmails : activeEmails;
+
+      if (source === "gmail") {
+        const response = await fetch("/api/email-providers/gmail/messages");
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Unable to fetch Gmail messages.");
+        }
+
+        emails = payload.messages;
+      }
+
+      if (useOpenAI) {
+        const response = await fetch("/api/triage", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            mode,
+            emails,
+            useOpenAI: true,
+          }),
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "OpenAI scan failed.");
+        }
+
+        setOpenAIItems(payload.items);
+        setActiveEmails(payload.items.map((item: TriagedEmail) => item.email));
+      } else {
+        setOpenAIItems(null);
+        setActiveEmails(emails);
+      }
+
       setHasRun(true);
-      setIsScanning(false);
       setSelectedId(null);
-    }, 650);
+    } catch (error) {
+      setScanError(error instanceof Error ? error.message : "Scan failed.");
+    } finally {
+      setIsScanning(false);
+      setPendingScan(false);
+    }
   }
 
   function updateReviewState(id: string, patch: Partial<TriageResult>) {
@@ -99,7 +187,7 @@ export function DashboardClient() {
 
           <Button
             size="lg"
-            onClick={runTriage}
+            onClick={runScan}
             disabled={isScanning}
             className="h-12 bg-[#141817] px-5 text-[#f7f6f1] hover:bg-[#27302d]"
           >
@@ -109,11 +197,48 @@ export function DashboardClient() {
               <Play className="size-4" />
             )}
             {isScanning
-              ? "Scanning mock inbox"
+              ? source === "gmail"
+                ? "Scanning Gmail"
+                : "Scanning mock inbox"
               : hasRun
-                ? "Run triage again"
-                : "Run triage"}
+                ? "Run Scan again"
+                : "Run Scan"}
           </Button>
+
+          <div className="liquid-glass flex flex-col gap-2 rounded-xl border-black/10 bg-white/58 p-2 sm:flex-row">
+            {(["mock", "gmail"] as const).map((option) => {
+              const selected = source === option;
+              const disabled = option === "gmail" && !hasGmailConnection;
+
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    setSource(option);
+                    setActiveEmails(option === "mock" ? mockEmails : []);
+                    setOpenAIItems(null);
+                    setHasRun(false);
+                    setSelectedId(null);
+                  }}
+                  className={`flex h-10 flex-1 items-center justify-center rounded-lg text-sm font-semibold transition-all ${
+                    selected
+                      ? "bg-[#141817] text-[#f7f6f1] shadow-lg"
+                      : "text-[#59635f] hover:bg-white/70"
+                  } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
+                >
+                  {option === "mock" ? "Mock inbox" : "Gmail inbox"}
+                </button>
+              );
+            })}
+          </div>
+
+          {scanError ? (
+            <div className="rounded-xl border border-[#c86a3b]/20 bg-[#fff1e8] px-4 py-3 text-sm text-[#8b4d2c]">
+              {scanError}
+            </div>
+          ) : null}
 
           <ModeSelector
             value={mode}
@@ -180,7 +305,64 @@ export function DashboardClient() {
           }
         />
       </section>
+
+      {showConsent ? (
+        <OpenAIConsentDialog
+          onAccept={() => {
+            window.localStorage.setItem("inboxpilot-openai-email-consent", "accepted");
+            setShowConsent(false);
+            if (pendingScan) void executeScan(true);
+          }}
+          onLocalOnly={() => {
+            setShowConsent(false);
+            if (pendingScan) void executeScan(false);
+          }}
+        />
+      ) : null}
     </main>
+  );
+}
+
+function OpenAIConsentDialog({
+  onAccept,
+  onLocalOnly,
+}: {
+  onAccept: () => void;
+  onLocalOnly: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#111614]/50 px-4 backdrop-blur-sm">
+      <div className="liquid-glass max-w-lg rounded-2xl border-white/50 bg-[#fffdf7]/88 p-6 shadow-2xl shadow-black/25">
+        <p className="text-sm font-semibold uppercase text-[#0e6f68]">
+          OpenAI email analysis
+        </p>
+        <h2 className="mt-2 text-3xl font-semibold tracking-normal text-[#141817]">
+          Allow OpenAI-assisted scanning?
+        </h2>
+        <p className="mt-4 text-sm leading-6 text-[#4a504d]">
+          InboxPilot can send selected message metadata, snippets, and available
+          body text to OpenAI to classify priority and draft concise next steps.
+          You can continue with local rules if you prefer.
+        </p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <Button
+            type="button"
+            onClick={onAccept}
+            className="h-11 bg-[#141817] text-[#f7f6f1] hover:bg-[#27302d]"
+          >
+            Allow OpenAI scan
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onLocalOnly}
+            className="h-11 border-black/10 bg-white/70"
+          >
+            Use local rules
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 

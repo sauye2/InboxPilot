@@ -102,6 +102,36 @@ export async function exchangeGmailCode(code: string) {
   };
 }
 
+export async function refreshGmailAccessToken(refreshToken: string) {
+  assertGmailEnv();
+
+  const body = new URLSearchParams({
+    refresh_token: refreshToken,
+    client_id: process.env.GOOGLE_CLIENT_ID!,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+    grant_type: "refresh_token",
+  });
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Google refresh failed with ${response.status}.`);
+  }
+
+  return (await response.json()) as {
+    access_token: string;
+    expires_in: number;
+    scope?: string;
+    token_type: string;
+  };
+}
+
 export async function fetchGmailProfile(accessToken: string) {
   const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
     headers: {
@@ -118,4 +148,112 @@ export async function fetchGmailProfile(accessToken: string) {
     messagesTotal?: number;
     threadsTotal?: number;
   };
+}
+
+type GmailMessageListItem = {
+  id: string;
+  threadId: string;
+};
+
+type GmailMessage = {
+  id: string;
+  threadId: string;
+  labelIds?: string[];
+  snippet?: string;
+  internalDate?: string;
+  payload?: {
+    headers?: Array<{
+      name: string;
+      value: string;
+    }>;
+  };
+};
+
+function header(message: GmailMessage, name: string) {
+  return (
+    message.payload?.headers?.find(
+      (item) => item.name.toLowerCase() === name.toLowerCase(),
+    )?.value ?? ""
+  );
+}
+
+function parseSender(from: string) {
+  const match = from.match(/^(.*?)\s*<([^>]+)>$/);
+
+  if (!match) {
+    return {
+      senderName: from || "Unknown sender",
+      senderEmail: from || "unknown@example.com",
+    };
+  }
+
+  return {
+    senderName: match[1]?.replace(/^"|"$/g, "").trim() || match[2],
+    senderEmail: match[2],
+  };
+}
+
+export async function fetchRecentGmailMessages(accessToken: string, maxResults = 15) {
+  const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+  listUrl.searchParams.set("maxResults", String(maxResults));
+  listUrl.searchParams.set("q", "newer_than:45d");
+
+  const listResponse = await fetch(listUrl, {
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!listResponse.ok) {
+    throw new Error(`Gmail message list failed with ${listResponse.status}.`);
+  }
+
+  const list = (await listResponse.json()) as {
+    messages?: GmailMessageListItem[];
+  };
+
+  const messages = await Promise.all(
+    (list.messages ?? []).map(async (item) => {
+      const messageUrl = new URL(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${item.id}`,
+      );
+      messageUrl.searchParams.set("format", "metadata");
+      messageUrl.searchParams.append("metadataHeaders", "From");
+      messageUrl.searchParams.append("metadataHeaders", "Subject");
+      messageUrl.searchParams.append("metadataHeaders", "Date");
+
+      const response = await fetch(messageUrl, {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Gmail message fetch failed with ${response.status}.`);
+      }
+
+      return (await response.json()) as GmailMessage;
+    }),
+  );
+
+  return messages.map((message) => {
+    const sender = parseSender(header(message, "From"));
+    const receivedAt = message.internalDate
+      ? new Date(Number(message.internalDate)).toISOString()
+      : new Date(header(message, "Date") || Date.now()).toISOString();
+
+    return {
+      id: `gmail:${message.id}`,
+      provider: "gmail" as const,
+      senderName: sender.senderName,
+      senderEmail: sender.senderEmail,
+      subject: header(message, "Subject") || "(No subject)",
+      body: message.snippet ?? "",
+      snippet: message.snippet ?? "",
+      receivedAt,
+      isRead: !(message.labelIds ?? []).includes("UNREAD"),
+      labels: message.labelIds ?? [],
+      threadId: message.threadId,
+    };
+  });
 }

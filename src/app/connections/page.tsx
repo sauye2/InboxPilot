@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, LockKeyhole, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -108,7 +108,7 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
               </div>
             </div>
             <div className="mt-6 grid gap-3 text-sm leading-6 text-white/68">
-              <p>No OAuth credentials are requested.</p>
+              <p>OAuth credentials stay server-side.</p>
               <p>Gmail requires explicit Google consent.</p>
               <p>No full email body is retained by default.</p>
               <p>Mock data powers the current triage experience.</p>
@@ -130,7 +130,7 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="flex size-11 items-center justify-center rounded-lg bg-[#e7f1ec]">
-                    <Mail className="size-5 text-[#0e6f68]" />
+                    <ProviderLogo name={provider.name} />
                   </span>
                   <Badge className="bg-[#ede9df] text-[#4a504d] hover:bg-[#ede9df]">
                     {isConnected ? "Connected" : provider.status}
@@ -180,5 +180,32 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
         </section>
       </main>
     </AppShell>
+  );
+}
+
+function ProviderLogo({ name }: { name: string }) {
+  if (name === "Gmail") {
+    return (
+      <span className="relative flex size-6 items-center justify-center">
+        <span className="absolute h-4 w-5 rounded-sm border-2 border-[#d93025]" />
+        <span className="absolute left-[3px] top-[5px] h-2.5 w-2.5 rotate-45 border-b-2 border-r-2 border-[#1a73e8]" />
+        <span className="absolute right-[3px] top-[5px] h-2.5 w-2.5 -rotate-45 border-b-2 border-l-2 border-[#188038]" />
+      </span>
+    );
+  }
+
+  if (name.startsWith("Outlook")) {
+    return (
+      <span className="relative flex size-6 items-center justify-center rounded bg-[#0f6cbd] text-[13px] font-bold text-white shadow-sm">
+        O
+        <span className="absolute -right-1 bottom-1 h-3 w-4 rounded-sm bg-[#28a8ea]" />
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex size-6 items-center justify-center rounded bg-[#6001d2] text-[15px] font-bold text-white shadow-sm">
+      Y!
+    </span>
   );
 }
