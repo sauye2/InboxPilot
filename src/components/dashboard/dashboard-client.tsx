@@ -191,7 +191,7 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
 
             <h1 className="-ml-2 mt-4 max-w-3xl text-6xl font-semibold leading-none tracking-normal sm:text-7xl">
               {greeting}.
-              <span className="mt-1.5 block text-3xl leading-tight sm:text-4xl">
+              <span className="ml-1.5 mt-1.5 block text-3xl leading-tight sm:text-4xl">
                 Here is your email summary.
               </span>
             </h1>
