@@ -19,7 +19,7 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
           style={{
             left: "0.25rem",
             width: "calc((100% - 0.5rem) / 3)",
-            transform: `translateX(calc(${activeIndex < 0 ? 0 : activeIndex} * ((100% - 0.5rem) / 3)))`,
+            transform: `translateX(${(activeIndex < 0 ? 0 : activeIndex) * 100}%)`,
           }}
         />
         {modeDefinitions.map((mode) => {
