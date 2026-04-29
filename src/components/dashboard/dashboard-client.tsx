@@ -189,13 +189,13 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
               Local-first MVP with mock inbox data
             </div>
 
-            <h1 className="mt-5 max-w-3xl text-6xl font-semibold leading-none tracking-normal sm:text-7xl">
+            <h1 className="mt-4 max-w-3xl text-6xl font-semibold leading-none tracking-normal sm:text-7xl">
               {greeting}.
-              <span className="mt-3 block text-3xl leading-tight sm:text-4xl">
+              <span className="mt-1.5 block text-3xl leading-tight sm:text-4xl">
                 Here is your email summary.
               </span>
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-white/64">
+            <p className="mt-3 max-w-2xl text-lg leading-8 text-white/64">
               Choose a workflow, scan realistic mock emails, and keep the next
               actions that matter visible without connecting a real inbox.
             </p>
