@@ -138,10 +138,12 @@ function normalizeTriageResult({
       ? localResult.category
       : parsed.category;
   const relevantToMode = isRelevantToMode(text, mode, category);
+  const effectiveDeadline = relevantToMode ? deadline : null;
+  const effectiveRequiresAction = relevantToMode && requiresAction;
   const priority = enforceDeadlinePriority({
     priority: relevantToMode ? parsed.priority : "low",
-    deadline,
-    requiresAction: relevantToMode && requiresAction,
+    deadline: effectiveDeadline,
+    requiresAction: effectiveRequiresAction,
   });
 
   return {
@@ -150,8 +152,8 @@ function normalizeTriageResult({
       emailId,
       priority,
       category: relevantToMode ? category : "Inbox Noise",
-      requiresAction: relevantToMode && requiresAction,
-      deadline,
+      requiresAction: effectiveRequiresAction,
+      deadline: effectiveDeadline,
       reviewed: localResult.reviewed,
       pinned: localResult.pinned,
       snoozedUntil: localResult.snoozedUntil,

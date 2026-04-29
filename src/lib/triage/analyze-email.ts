@@ -41,15 +41,16 @@ export function analyzeEmail(
 
   const requiresAction =
     relevantToMode && actionHits.length > 0 && !text.includes("no action is required");
-  const priority = enforceDeadlinePriority(scoreToPriority(score), deadline, requiresAction);
-  const confidence = Math.min(0.96, 0.58 + actionHits.length * 0.06 + urgentHits.length * 0.05 + (deadline ? 0.12 : 0));
+  const effectiveDeadline = relevantToMode ? deadline : null;
+  const priority = enforceDeadlinePriority(scoreToPriority(score), effectiveDeadline, requiresAction);
+  const confidence = Math.min(0.96, 0.58 + actionHits.length * 0.06 + urgentHits.length * 0.05 + (effectiveDeadline ? 0.12 : 0));
 
   return {
     emailId: email.id,
     priority,
     category,
     requiresAction,
-    deadline,
+    deadline: effectiveDeadline,
     actionSummary: buildActionSummary(category, requiresAction, deadline),
     reason: buildReason({ requiresAction, deadline, urgentHits, category, priority }),
     confidence: Number(confidence.toFixed(2)),
