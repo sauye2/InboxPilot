@@ -221,8 +221,8 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
                 )}
                 {isScanning
                   ? source === "gmail"
-                    ? "Scanning Gmail"
-                    : "Scanning mock inbox"
+                    ? "Scanning Gmail Inbox"
+                    : "Scanning Mock Inbox"
                   : hasRun
                     ? "Run Scan again"
                     : "Run Scan"}
@@ -323,7 +323,7 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
                 Ready when you are
               </h2>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#68716d]">
-                Run triage to process the local mock inbox. No email account is
+                Run Scan to process the local mock inbox. No email account is
                 connected and no credentials are required.
               </p>
             </div>

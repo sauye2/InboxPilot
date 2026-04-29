@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="yahooGradient" x1="74" x2="438" y1="46" y2="466" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#8058ff"/>
-      <stop offset=".52" stop-color="#6b22ec"/>
+    <linearGradient id="yahooGradient" x1="70" x2="438" y1="36" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#865dff"/>
+      <stop offset=".48" stop-color="#6f2cff"/>
       <stop offset="1" stop-color="#6001d2"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="74" fill="url(#yahooGradient)"/>
-  <rect x="100" y="105" width="312" height="190" rx="26" fill="#fff"/>
-  <path fill="#6d48f4" d="M125 126h262v34L256 237 125 160v-34Z"/>
-  <path fill="#fff" d="M100 277c0 10 8 18 18 18h276c10 0 18-8 18-18L292 202l-36 21-36-21-120 75Z" opacity=".98"/>
-  <text x="256" y="410" text-anchor="middle" fill="#fff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="104" font-weight="900" letter-spacing="-7">yahoo!</text>
+  <rect width="512" height="512" rx="82" fill="url(#yahooGradient)"/>
+  <rect x="96" y="94" width="320" height="190" rx="26" fill="#fff"/>
+  <path fill="#744cff" d="M128 119h256v36L256 230 128 155v-36Z"/>
+  <path fill="#fff" d="M96 266c0 10 8 18 18 18h284c10 0 18-8 18-18L292 199l-36 21-36-21-124 67Z" opacity=".99"/>
+  <text x="256" y="421" text-anchor="middle" fill="#fff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="118" font-weight="900" letter-spacing="-8">yahoo!</text>
 </svg>
