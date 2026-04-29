@@ -14,10 +14,18 @@ import { mockEmails } from "@/lib/mock/mock-emails";
 import { priorityWeights } from "@/lib/triage/rules";
 
 type InboxSource = "mock" | "gmail";
+type OpenAIConsentPreference = "accepted" | "declined" | null;
 
 type DashboardClientProps = {
   hasGmailConnection?: boolean;
 };
+
+function getTimeGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 export function DashboardClient({ hasGmailConnection = false }: DashboardClientProps) {
   const [mode, setMode] = useState<TriageMode>("job_search");
@@ -29,6 +37,7 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
   const [scanError, setScanError] = useState<string | null>(null);
   const [showConsent, setShowConsent] = useState(false);
   const [pendingScan, setPendingScan] = useState(false);
+  const [greeting] = useState(getTimeGreeting);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>("needs_action");
   const [taskIds, setTaskIds] = useState<string[]>([]);
@@ -79,18 +88,22 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
     [analyzed.items, selectedFilter],
   );
 
-  function hasOpenAIConsent() {
-    return window.localStorage.getItem("inboxpilot-openai-email-consent") === "accepted";
+  function getOpenAIConsentPreference(): OpenAIConsentPreference {
+    const preference = window.localStorage.getItem("inboxpilot-openai-email-consent");
+    if (preference === "accepted" || preference === "declined") return preference;
+    return null;
   }
 
   function runScan() {
-    if (!hasOpenAIConsent()) {
+    const preference = getOpenAIConsentPreference();
+
+    if (!preference) {
       setPendingScan(true);
       setShowConsent(true);
       return;
     }
 
-    void executeScan(true);
+    void executeScan(preference === "accepted");
   }
 
   async function executeScan(useOpenAI: boolean) {
@@ -177,7 +190,7 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
             </div>
 
             <h1 className="mt-5 max-w-3xl text-5xl font-semibold leading-[1.03] tracking-normal sm:text-6xl">
-              Welcome, InboxPilot. Here is your email summary.
+              {greeting}. Here is your email summary.
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-white/64">
               Choose a workflow, scan realistic mock emails, and keep the next
@@ -314,6 +327,7 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
             if (pendingScan) void executeScan(true);
           }}
           onLocalOnly={() => {
+            window.localStorage.setItem("inboxpilot-openai-email-consent", "declined");
             setShowConsent(false);
             if (pendingScan) void executeScan(false);
           }}
@@ -361,20 +375,21 @@ function OpenAIConsentDialog({
         <p className="mt-4 text-sm leading-6 text-white/78">
           OpenAI helps parse message context and turn emails into clearer next
           steps. If you opt out, InboxPilot will scan with local rules only.
+          <span className="block text-white/54">You can change this in Settings.</span>
         </p>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
           <Button
             type="button"
             variant="outline"
             onClick={onLocalOnly}
-            className="h-11 border-white/18 bg-white/82 text-[#141817] hover:bg-white"
+            className="h-9 border-white/18 bg-white/82 px-4 text-[#141817] hover:bg-white"
           >
             Opt-Out
           </Button>
           <Button
             type="button"
             onClick={onAccept}
-            className="h-11 bg-[#f7f6f1] text-[#141817] hover:bg-white"
+            className="h-9 bg-[#f7f6f1] px-4 text-[#141817] hover:bg-white"
           >
             Opt-In (Recommended)
           </Button>

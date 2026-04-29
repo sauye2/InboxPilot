@@ -1,15 +1,16 @@
 import { Brain, Database, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { AIPreferenceCard } from "@/components/settings/ai-preference-card";
 
 const settings = [
   {
     title: "AI provider",
-    body: "OpenAI integration will plug into the triage service abstraction after credentials, audit logging, and retention settings are defined.",
+    body: "OpenAI is available for opted-in scans and reply suggestions can plug into the same service layer later.",
     icon: Brain,
   },
   {
     title: "Supabase account",
-    body: "Authentication, user preferences, saved triage results, and review history are planned for a future Supabase-backed release.",
+    body: "Supabase handles sign-in now. Saved triage results and review history can be added next.",
     icon: Database,
   },
   {
@@ -33,13 +34,13 @@ export default function SettingsPage() {
             </h1>
           </div>
           <p className="max-w-2xl text-lg leading-8 text-white/64">
-            These are placeholders for production configuration. The local MVP
-            does not require credentials, Supabase, real inbox access, or a live
-            AI provider.
+            Manage privacy-conscious scanning choices and the production services
+            that support InboxPilot.
           </p>
         </section>
 
         <div className="mt-10 grid gap-4 md:grid-cols-3">
+          <AIPreferenceCard />
           {settings.map((item) => {
             const Icon = item.icon;
             return (

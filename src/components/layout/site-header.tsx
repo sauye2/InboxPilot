@@ -78,18 +78,18 @@ export async function SiteHeader() {
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              sideOffset={10}
-              className="liquid-glass w-56 rounded-2xl border-black/10 bg-[#fffdf7]/92 p-2 text-[#141817] shadow-2xl shadow-black/15"
+              sideOffset={8}
+              className="liquid-glass w-48 rounded-xl border-black/10 bg-[#fffdf7]/92 p-1.5 text-[#141817] shadow-2xl shadow-black/15"
             >
-              <div className="rounded-xl bg-[#ede9df]/82 px-4 py-3">
-                <p className="text-sm font-semibold leading-5">Signed in</p>
-                <p className="mt-0.5 truncate text-xs text-[#68716d]">
+              <div className="rounded-lg bg-[#ede9df]/82 px-3 py-2.5">
+                <p className="text-xs font-semibold leading-4">Signed in</p>
+                <p className="mt-0.5 truncate text-[11px] text-[#68716d]">
                   {user.email}
                 </p>
               </div>
               <form action={signOutAction}>
                 <DropdownMenuItem
-                  className="mt-1 h-10 cursor-pointer rounded-xl px-4 font-semibold text-[#141817] focus:bg-[#ede9df]"
+                  className="mt-1 h-8 cursor-pointer rounded-lg px-3 text-xs font-semibold text-[#141817] focus:bg-[#ede9df]"
                   render={<button type="submit" className="w-full text-left" />}
                 >
                   Sign out

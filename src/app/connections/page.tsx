@@ -1,9 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { ArrowRight, LockKeyhole, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const providers = [
@@ -47,10 +50,39 @@ const providerLogoAssets: Record<
   "Yahoo Mail": {
     src: "/provider-logos/yahoo-mail.svg",
     alt: "Yahoo Mail logo",
-    imageClassName: "size-9 rounded-lg object-cover",
-    frameClassName: "bg-white/74 p-1",
+    imageClassName: "size-12 rounded-xl object-cover",
+    frameClassName: "overflow-hidden bg-white/78",
   },
 };
+
+async function disconnectGmailAction() {
+  "use server";
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login?next=/connections");
+
+  const admin = createSupabaseAdminClient();
+  const { data: connection } = await admin
+    .from("email_connections")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("provider", "gmail")
+    .maybeSingle();
+
+  if (connection?.id) {
+    await admin
+      .from("email_connection_tokens")
+      .delete()
+      .eq("connection_id", connection.id);
+    await admin.from("email_connections").delete().eq("id", connection.id);
+  }
+
+  revalidatePath("/connections");
+}
 
 type ConnectionsPageProps = {
   searchParams: Promise<{
@@ -173,7 +205,26 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
                     ? `Connected as ${connection.provider_account_email}`
                     : provider.detail}
                 </p>
-                {provider.disabled ? (
+                {isConnected ? (
+                  <div className="mt-5 space-y-3">
+                    <div className="rounded-xl border border-black/8 bg-[#ede9df]/58 px-4 py-3 text-sm text-[#4a504d]">
+                      <span className="block text-xs font-semibold uppercase tracking-wide text-[#68716d]">
+                        Signed in as
+                      </span>
+                      <span className="mt-1 block truncate font-medium text-[#141817]">
+                        {connection.provider_account_email}
+                      </span>
+                    </div>
+                    <form action={disconnectGmailAction}>
+                      <button
+                        type="submit"
+                        className="h-8 rounded-md border border-black/10 bg-white/52 px-3 text-xs font-semibold text-[#4a504d] transition hover:bg-white hover:text-[#141817]"
+                      >
+                        Sign out
+                      </button>
+                    </form>
+                  </div>
+                ) : provider.disabled ? (
                   <button
                     disabled
                     className="mt-5 flex h-11 w-full items-center justify-center rounded-md border border-black/10 bg-[#ede9df]/70 text-sm font-medium text-[#7d8680]"
@@ -189,7 +240,7 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
                         "mt-5 h-11 w-full bg-[#141817] text-[#f7f6f1] hover:bg-[#27302d]",
                     })}
                   >
-                    {isConnected ? "Reconnect Gmail" : "Connect Gmail"}
+                    Connect Gmail
                   </Link>
                 )}
               </article>
