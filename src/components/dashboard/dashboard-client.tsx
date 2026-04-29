@@ -200,11 +200,13 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
                 Choose a workflow, scan realistic mock emails, and keep the next
                 actions that matter visible without connecting a real inbox.
               </p>
+            </div>
+            <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3">
               <Button
                 size="lg"
                 onClick={runScan}
                 disabled={isScanning}
-                className="absolute bottom-3 right-3 h-10 w-fit shrink-0 rounded-full border border-white/70 bg-[#fffdf7]/92 px-4 text-[#141817] shadow-lg shadow-black/18 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-xl sm:bottom-4 sm:right-4"
+                className="h-10 w-fit shrink-0 rounded-full border border-white/70 bg-[#fffdf7]/92 px-4 text-[#141817] shadow-lg shadow-black/18 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-xl"
               >
                 {isScanning ? (
                   <Loader2 className="size-4 animate-spin" />
