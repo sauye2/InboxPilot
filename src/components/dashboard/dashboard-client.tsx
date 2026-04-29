@@ -195,31 +195,32 @@ export function DashboardClient({ hasGmailConnection = false }: DashboardClientP
                 Here is your email summary.
               </span>
             </h1>
-            <p className="mt-3 max-w-2xl text-lg leading-8 text-white/64">
-              Choose a workflow, scan realistic mock emails, and keep the next
-              actions that matter visible without connecting a real inbox.
-            </p>
+            <div className="mt-3 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <p className="max-w-2xl text-lg leading-8 text-white/64">
+                Choose a workflow, scan realistic mock emails, and keep the next
+                actions that matter visible without connecting a real inbox.
+              </p>
+              <Button
+                size="lg"
+                onClick={runScan}
+                disabled={isScanning}
+                className="h-11 w-fit shrink-0 bg-[#f7f6f1] px-5 text-[#141817] hover:bg-white"
+              >
+                {isScanning ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Play className="size-4" />
+                )}
+                {isScanning
+                  ? source === "gmail"
+                    ? "Scanning Gmail"
+                    : "Scanning mock inbox"
+                  : hasRun
+                    ? "Run Scan again"
+                    : "Run Scan"}
+              </Button>
+            </div>
           </div>
-
-          <Button
-            size="lg"
-            onClick={runScan}
-            disabled={isScanning}
-            className="h-12 bg-[#141817] px-5 text-[#f7f6f1] hover:bg-[#27302d]"
-          >
-            {isScanning ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Play className="size-4" />
-            )}
-            {isScanning
-              ? source === "gmail"
-                ? "Scanning Gmail"
-                : "Scanning mock inbox"
-              : hasRun
-                ? "Run Scan again"
-                : "Run Scan"}
-          </Button>
 
           <div className="liquid-glass flex flex-col gap-2 rounded-xl border-black/10 bg-white/58 p-2 sm:flex-row">
             {(["mock", "gmail"] as const).map((option) => {
