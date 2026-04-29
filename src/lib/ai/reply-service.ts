@@ -36,7 +36,7 @@ export class OpenAIReplyService {
         {
           role: "system",
           content:
-            "Draft a helpful email reply. Do not claim the user completed actions they have not confirmed. Keep the reply concise and ready to edit.",
+            "Draft a helpful email reply. Use a professional email format with greeting, concise body, and signoff on separate lines. Do not claim the user completed actions they have not confirmed. Keep the reply concise and ready to edit. Use [Your Name] as the signature placeholder unless the user's name is explicit.",
         },
         {
           role: "user",

@@ -9,6 +9,8 @@ export const priorityWeights: Record<PriorityLevel, number> = {
 export const actionPhrases = [
   "please respond",
   "please reply",
+  "respond",
+  "reply",
   "action required",
   "confirm",
   "approve",
@@ -17,6 +19,10 @@ export const actionPhrases = [
   "sign",
   "verify",
   "availability",
+  "available",
+  "are you available",
+  "let me know",
+  "rsvp",
   "reply if",
   "needed",
   "needs",
@@ -36,7 +42,7 @@ export const urgentPhrases = [
 export const modeCategoryKeywords: Record<TriageMode, Record<string, string[]>> = {
   job_search: {
     Interviews: ["interview", "panel", "availability", "technical"],
-    Applications: ["application", "status update", "candidate"],
+    Applications: ["application", "status update", "candidate", "applied", "thank you for applying", "application received", "confirmation"],
     "Job Offers": ["offer", "compensation", "benefits", "signing"],
     "Online Assessment": ["assessment", "take-home", "coding exercise", "react exercise"],
     Recruiters: ["recruiter", "recruiting", "talent", "careers"],
@@ -56,10 +62,10 @@ export const modeCategoryKeywords: Record<TriageMode, Record<string, string[]>> 
     Urgent: ["urgent", "asap", "unusual", "secure", "clinic", "medical", "appointment", "dermatology"],
     Purchases: ["order", "purchase", "receipt", "package", "delivery", "tracking", "signature"],
     Reservations: ["reservation", "confirmed for", "cancel"],
-    Events: ["event", "reminder", "ticket"],
+    Events: ["event", "reminder", "ticket", "dinner", "invite", "invitation", "available", "rsvp", "plans"],
     Finance: ["bank", "card", "transaction", "account", "bill", "invoice", "late fee", "payment"],
     Documents: ["document", "sign", "paperwork", "forms"],
-    "Inbox Noise": ["no signature is required", "confirmed", "no action is required"],
+    "Inbox Noise": ["no signature is required", "no action is required", "newsletter", "highlights"],
   },
 };
 

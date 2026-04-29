@@ -1,6 +1,7 @@
 const relativeDeadlinePatterns = [
   { pattern: /\btomorrow(?:\s+(?:at|by)\s+([\d:]+\s*(?:am|pm)))?/i, label: "tomorrow" },
   { pattern: /\btoday(?:\s+(?:at|by|between)\s+([^.,]+))?/i, label: "today" },
+  { pattern: /\bthis friday(?:\s+(?:at|by)\s+([^.,]+))?/i, label: "this Friday" },
   { pattern: /\bfriday(?:\s+(?:at|by)\s+([^.,]+))?/i, label: "Friday" },
   { pattern: /\bthursday(?:\s+(?:at|by)\s+([^.,]+))?/i, label: "Thursday" },
   { pattern: /\bsaturday(?:\s+(?:at|by)\s+([^.,]+))?/i, label: "Saturday" },

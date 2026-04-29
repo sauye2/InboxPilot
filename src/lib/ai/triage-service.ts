@@ -55,7 +55,7 @@ export class OpenAITriageService implements TriageService {
         {
           role: "system",
           content:
-            "You classify confidential emails for InboxPilot. Return brief, practical triage only. Do not invent facts. Prefer concise task wording. If the email is noise, mark it low priority and no action.",
+            "You classify confidential emails for InboxPilot. Return brief, practical triage only. Do not invent facts. Prefer concise task wording. Deadlines and requested replies should raise priority even for personal events. High priority can include non-emergency emails that need a response soon; rank true security, financial, work blockers, and interviews above casual plans. In Life mode, invitations, reservations, concerts, dinners, appointments, and plans belong in Events unless they are pure promotion. If an email asks availability for Friday or another nearby day, include that deadline and mark requiresAction true.",
         },
         {
           role: "user",

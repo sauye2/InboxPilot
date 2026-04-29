@@ -14,6 +14,12 @@ describe("detectDeadline", () => {
   it("detects absolute month/day deadlines", () => {
     expect(detectDeadline("Your bill is due May 3.")).toBe("May 3");
   });
+
+  it("detects this Friday as a nearby deadline", () => {
+    expect(detectDeadline("Are you available for dinner this Friday?")).toBe(
+      "this Friday",
+    );
+  });
 });
 
 describe("analyzeEmail", () => {
@@ -44,6 +50,30 @@ describe("analyzeEmail", () => {
     expect(result.priority).toBe("high");
     expect(result.category).toBe("Urgent");
     expect(result.requiresAction).toBe(true);
+  });
+
+  it("treats personal event replies with nearby deadlines as important", () => {
+    const result = analyzeEmail(
+      {
+        id: "gmail:test-dinner",
+        provider: "gmail",
+        senderName: "Stanley Auyeung",
+        senderEmail: "stanley@example.com",
+        subject: "Dinner",
+        body: "Are you available for dinner this Friday? Let me know!",
+        snippet: "Are you available for dinner this Friday? Let me know!",
+        receivedAt: new Date().toISOString(),
+        isRead: false,
+        labels: ["UNREAD"],
+        threadId: "thread-dinner",
+      },
+      "life_admin",
+    );
+
+    expect(result.priority).toBe("high");
+    expect(result.category).toBe("Events");
+    expect(result.requiresAction).toBe(true);
+    expect(result.deadline).toBe("this Friday");
   });
 });
 

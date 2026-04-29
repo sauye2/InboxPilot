@@ -162,6 +162,10 @@ type GmailMessage = {
   snippet?: string;
   internalDate?: string;
   payload?: {
+    body?: {
+      data?: string;
+    };
+    parts?: GmailMessage["payload"][];
     headers?: Array<{
       name: string;
       value: string;
@@ -193,10 +197,54 @@ function parseSender(from: string) {
   };
 }
 
-export async function fetchRecentGmailMessages(accessToken: string, maxResults = 15) {
+function decodeBase64Url(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  return Buffer.from(normalized, "base64").toString("utf8");
+}
+
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) =>
+      String.fromCharCode(Number.parseInt(code, 16)),
+    )
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function stripHtml(value: string) {
+  return decodeHtmlEntities(value)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function extractBody(payload: GmailMessage["payload"]): string {
+  if (!payload) return "";
+
+  if (payload.body?.data) {
+    return stripHtml(decodeBase64Url(payload.body.data));
+  }
+
+  for (const part of payload.parts ?? []) {
+    const extracted = extractBody(part);
+    if (extracted) return extracted;
+  }
+
+  return "";
+}
+
+export async function fetchRecentGmailMessages(accessToken: string, maxResults = 50) {
   const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
   listUrl.searchParams.set("maxResults", String(maxResults));
-  listUrl.searchParams.set("q", "newer_than:45d");
+  listUrl.searchParams.set("q", "newer_than:90d");
 
   const listResponse = await fetch(listUrl, {
     headers: {
@@ -217,10 +265,7 @@ export async function fetchRecentGmailMessages(accessToken: string, maxResults =
       const messageUrl = new URL(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${item.id}`,
       );
-      messageUrl.searchParams.set("format", "metadata");
-      messageUrl.searchParams.append("metadataHeaders", "From");
-      messageUrl.searchParams.append("metadataHeaders", "Subject");
-      messageUrl.searchParams.append("metadataHeaders", "Date");
+      messageUrl.searchParams.set("format", "full");
 
       const response = await fetch(messageUrl, {
         headers: {
@@ -238,6 +283,8 @@ export async function fetchRecentGmailMessages(accessToken: string, maxResults =
 
   return messages.map((message) => {
     const sender = parseSender(header(message, "From"));
+    const body = extractBody(message.payload);
+    const snippet = decodeHtmlEntities(message.snippet ?? "");
     const receivedAt = message.internalDate
       ? new Date(Number(message.internalDate)).toISOString()
       : new Date(header(message, "Date") || Date.now()).toISOString();
@@ -248,8 +295,8 @@ export async function fetchRecentGmailMessages(accessToken: string, maxResults =
       senderName: sender.senderName,
       senderEmail: sender.senderEmail,
       subject: header(message, "Subject") || "(No subject)",
-      body: message.snippet ?? "",
-      snippet: message.snippet ?? "",
+      body: body || snippet,
+      snippet,
       receivedAt,
       isRead: !(message.labelIds ?? []).includes("UNREAD"),
       labels: message.labelIds ?? [],

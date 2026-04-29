@@ -69,7 +69,7 @@ export function SummaryCards({
       label: "Urgent",
       value: summary.highPriorityCount,
       detail: "review first",
-      filter: "Urgent",
+      filter: "priority_high",
     },
     ...modeCategories.map((category) => ({
       label: category,
@@ -90,7 +90,7 @@ export function SummaryCards({
             key={metric.label}
             className={`liquid-glass rounded-xl border-black/10 p-4 text-left transition-all hover:-translate-y-0.5 ${
               selected
-                ? "liquid-glass-dark border-white/15 bg-[#141817]/74 text-[#f7f6f1] shadow-xl shadow-black/15"
+                ? "liquid-glass-dark border-white/15 bg-[#141817]/68 text-[#f7f6f1] shadow-xl shadow-black/15"
                 : "bg-white/70"
             }`}
             onClick={() => onSelectFilter(metric.filter)}

@@ -42,10 +42,10 @@ const providerLogoAssets: Record<
     frameClassName: "bg-white/78",
   },
   "Outlook / Microsoft 365": {
-    src: "/provider-logos/outlook-2025.png",
+    src: "/provider-logos/outlook.svg",
     alt: "Microsoft Outlook logo",
-    imageClassName: "size-12 object-contain",
-    frameClassName: "overflow-hidden bg-white/78",
+    imageClassName: "size-9 object-contain",
+    frameClassName: "bg-white/78",
   },
   "Yahoo Mail": {
     src: "/provider-logos/yahoo-mail.png",
@@ -207,19 +207,19 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
                 </p>
                 <div className="mt-auto pt-5">
                   {isConnected ? (
-                    <div className="flex min-h-11 items-center gap-3 rounded-xl border border-black/8 bg-[#ede9df]/58 px-3 py-2 text-[#4a504d] shadow-inner shadow-white/20">
-                      <p className="min-w-0 flex-1 truncate text-[11px] leading-5 text-[#4a504d]">
-                        <span className="font-semibold uppercase tracking-wide text-[#68716d]">
+                    <div className="flex min-h-11 items-center gap-2 rounded-xl border border-black/8 bg-[#ede9df]/58 px-3 py-2 text-[#4a504d] shadow-inner shadow-white/20">
+                      <p className="min-w-0 flex flex-1 items-center gap-2 truncate text-[11px] leading-5 text-[#4a504d]">
+                        <span className="shrink-0 font-semibold text-[#68716d]">
                           Signed in as
                         </span>{" "}
-                        <span className="font-medium text-[#141817]">
+                        <span className="min-w-0 truncate rounded-md border border-black/10 bg-[#fffdf7]/74 px-2 py-1 font-medium text-[#141817]">
                           {connection.provider_account_email}
                         </span>
                       </p>
                       <form action={disconnectGmailAction} className="shrink-0">
                         <button
                           type="submit"
-                          className="h-7 rounded-md border border-black/10 bg-white/58 px-2.5 text-[11px] font-semibold text-[#4a504d] transition hover:bg-white hover:text-[#141817]"
+                          className="h-7 rounded-md border border-[#c86a3b]/20 bg-[#fff1e8] px-2.5 text-[11px] font-semibold text-[#9a4d2c] transition hover:bg-[#ffe6d7] hover:text-[#7d351d]"
                         >
                           Sign out
                         </button>
@@ -274,6 +274,7 @@ function ProviderLogo({ name }: { name: string }) {
       width={40}
       height={40}
       className={logo.imageClassName}
+      unoptimized={name === "Yahoo Mail"}
     />
   );
 }

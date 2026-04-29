@@ -25,6 +25,7 @@ export function analyzeEmail(
   score += actionHits.length > 0 ? 2 : 0;
   score += urgentHits.length > 0 ? 2 : 0;
   score += deadline ? 2 : 0;
+  score += deadline && actionHits.length > 0 ? 1 : 0;
   score += email.isRead ? 0 : 1;
   score += modeSpecificBoost(text, mode, category);
 
@@ -90,7 +91,11 @@ function modeSpecificBoost(text: string, mode: TriageMode, category: string) {
     return ["Manager", "Approvals", "Clients", "Deadlines", "Urgent"].includes(category) ? 2 : 0;
   }
 
-  return ["Bills", "Medical", "Finance", "Urgent", "Needs Reply"].includes(category) ? 2 : 0;
+  return ["Bills", "Medical", "Finance", "Urgent", "Needs Reply"].includes(category)
+    ? 2
+    : category === "Events"
+      ? 1
+      : 0;
 }
 
 function buildActionSummary(category: string, requiresAction: boolean, deadline: string | null) {
@@ -165,6 +170,10 @@ function buildSuggestedNextAction(
 
   if (text.includes("bill") || text.includes("payment")) {
     return deadline ? `Pay or schedule the bill by ${deadline}.` : "Review the bill.";
+  }
+
+  if (category === "Events" && deadline) {
+    return `Respond with your availability for ${deadline}.`;
   }
 
   if (deadline) {

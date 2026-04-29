@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, Loader2, Play, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Loader2, Play, ShieldCheck, X } from "lucide-react";
 import type { EmailMessage } from "@/types/email";
 import type { TriageMode, TriageResult, TriagedEmail } from "@/types/triage";
 import { Button } from "@/components/ui/button";
@@ -90,6 +90,7 @@ export function DashboardClient({
         .filter((item) => {
           if (selectedFilter === "scanned") return true;
           if (selectedFilter === "needs_action") return item.triage.requiresAction;
+          if (selectedFilter === "priority_high") return item.triage.priority === "high";
           return item.triage.category === selectedFilter;
         })
         .sort(sortItems),
@@ -477,6 +478,8 @@ function TaskList({
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [draftingId, setDraftingId] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const selectedTask = tasks.find((task) => task.email.id === selectedTaskId) ?? null;
 
   async function generateReply(emailId: string) {
     setDraftingId(emailId);
@@ -508,17 +511,17 @@ function TaskList({
   }
 
   return (
-    <section className="liquid-glass rounded-2xl border-black/10 bg-white/64 p-5">
+    <section className="liquid-glass rounded-2xl border-black/10 bg-white/64 p-5 shadow-xl shadow-black/8">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold tracking-normal text-[#141817]">
             Task list
           </h2>
           <p className="mt-1 text-sm text-[#4a504d]">
-            Emails you choose to work on. Future AI response drafts can live here.
+            Saved email follow-ups with editable AI draft space.
           </p>
         </div>
-        <span className="text-sm font-medium text-[#68716d]">
+        <span className="rounded-full border border-black/10 bg-[#fffdf7]/70 px-3 py-1 text-sm font-medium text-[#68716d]">
           {tasks.length} tasks
         </span>
       </div>
@@ -530,60 +533,112 @@ function TaskList({
             Open a priority email and add it to your task list.
           </p>
         </div>
+      ) : selectedTask ? (
+        <div className="animate-in fade-in slide-in-from-bottom-3 mt-5 rounded-xl border border-black/10 bg-[#fffdf7]/78 p-4 duration-300">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase text-[#68716d]">
+                Selected task
+              </p>
+              <h3 className="mt-1 text-xl font-semibold text-[#141817]">
+                {selectedTask.email.subject}
+              </h3>
+              <p className="mt-1 text-sm text-[#68716d]">
+                {selectedTask.email.senderName} &lt;{selectedTask.email.senderEmail}&gt;
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Close selected task"
+              className="flex size-9 items-center justify-center rounded-full border border-black/10 bg-white/70 text-[#4a504d] transition hover:bg-white hover:text-[#141817]"
+              onClick={() => setSelectedTaskId(null)}
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="rounded-xl bg-[#f1f0ea] p-4">
+              <p className="text-xs font-semibold uppercase text-[#68716d]">
+                Original email
+              </p>
+              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#33423d]">
+                {selectedTask.email.body || selectedTask.email.snippet}
+              </p>
+            </div>
+            <div className="rounded-xl border border-black/8 bg-white/62 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase text-[#68716d]">
+                  Draft reply
+                </p>
+                <button
+                  className="rounded-full border border-black/10 bg-[#fffdf7]/80 px-3 py-1.5 text-xs font-semibold text-[#33423d] transition hover:bg-white"
+                  disabled={draftingId === selectedTask.email.id}
+                  onClick={() => generateReply(selectedTask.email.id)}
+                >
+                  {draftingId === selectedTask.email.id ? "Drafting..." : "Generate draft"}
+                </button>
+              </div>
+              <textarea
+                value={drafts[selectedTask.email.id] ?? ""}
+                onChange={(event) =>
+                  setDrafts((current) => ({
+                    ...current,
+                    [selectedTask.email.id]: event.target.value,
+                  }))
+                }
+                placeholder="Generate a draft, then edit it here."
+                className="mt-3 min-h-44 w-full resize-y rounded-lg border border-black/10 bg-[#fffdf7]/85 p-3 text-sm leading-6 text-[#33423d] outline-none transition focus:border-[#0e6f68]/40 focus:ring-2 focus:ring-[#8bd3c7]/30"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              className="rounded-full border border-black/10 bg-white/70 px-3 py-1.5 text-sm"
+              onClick={() => onToggleReviewed(selectedTask.email.id)}
+            >
+              {selectedTask.triage.reviewed ? "Unmark reviewed" : "Mark reviewed"}
+            </button>
+            <button
+              className="rounded-full border border-[#c86a3b]/20 bg-[#fff1e8] px-3 py-1.5 text-sm font-medium text-[#9a4d2c]"
+              onClick={() => {
+                onRemove(selectedTask.email.id);
+                setSelectedTaskId(null);
+              }}
+            >
+              Remove from tasks
+            </button>
+          </div>
+        </div>
       ) : (
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <div className="mt-5 grid gap-2">
           {draftError ? (
-            <div className="rounded-xl border border-[#c86a3b]/20 bg-[#fff1e8] px-4 py-3 text-sm text-[#8b4d2c] md:col-span-2">
+            <div className="rounded-xl border border-[#c86a3b]/20 bg-[#fff1e8] px-4 py-3 text-sm text-[#8b4d2c]">
               {draftError}
             </div>
           ) : null}
           {tasks.map((item) => (
-            <article
+            <button
               key={item.email.id}
-              className={`rounded-xl border border-black/10 bg-[#fffdf7]/78 p-4 transition-opacity ${
+              type="button"
+              onClick={() => setSelectedTaskId(item.email.id)}
+              className={`flex items-center justify-between gap-4 rounded-xl border border-black/10 bg-[#fffdf7]/78 p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-md ${
                 item.triage.reviewed ? "opacity-60" : ""
               }`}
             >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-semibold text-[#141817]">
-                    {item.email.senderName}
-                  </p>
-                  <p className="mt-1 text-sm text-[#4a504d]">
-                    {item.triage.suggestedNextAction}
-                  </p>
-                </div>
-                {item.triage.reviewed ? (
-                  <CheckCircle2 className="size-5 shrink-0 text-[#0e6f68]" />
-                ) : null}
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-[#141817]">
+                  {item.email.senderName}
+                </p>
+                <p className="mt-1 truncate text-sm text-[#4a504d]">
+                  {item.triage.suggestedNextAction}
+                </p>
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  className="rounded-md border border-black/10 bg-white/70 px-3 py-1.5 text-sm"
-                  onClick={() => onToggleReviewed(item.email.id)}
-                >
-                  {item.triage.reviewed ? "Unmark reviewed" : "Mark reviewed"}
-                </button>
-                <button
-                  className="rounded-md border border-black/10 bg-white/70 px-3 py-1.5 text-sm"
-                  onClick={() => onRemove(item.email.id)}
-                >
-                  Remove
-                </button>
-                <button
-                  className="rounded-md border border-black/10 bg-white/70 px-3 py-1.5 text-sm"
-                  disabled={draftingId === item.email.id}
-                  onClick={() => generateReply(item.email.id)}
-                >
-                  {draftingId === item.email.id ? "Drafting..." : "Draft reply"}
-                </button>
-              </div>
-              {drafts[item.email.id] ? (
-                <div className="mt-4 rounded-lg bg-[#f1f0ea] p-3 text-sm leading-6 text-[#33423d]">
-                  {drafts[item.email.id]}
-                </div>
+              {item.triage.reviewed ? (
+                <CheckCircle2 className="size-5 shrink-0 text-[#0e6f68]" />
               ) : null}
-            </article>
+            </button>
           ))}
         </div>
       )}
