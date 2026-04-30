@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { cleanEmailText, decodeHtmlEntities } from "@/lib/email/clean-email-text";
 
 export const GMAIL_READONLY_SCOPE =
   "https://www.googleapis.com/auth/gmail.readonly";
@@ -162,6 +163,7 @@ type GmailMessage = {
   snippet?: string;
   internalDate?: string;
   payload?: {
+    mimeType?: string;
     body?: {
       data?: string;
     };
@@ -202,49 +204,51 @@ function decodeBase64Url(value: string) {
   return Buffer.from(normalized, "base64").toString("utf8");
 }
 
-function decodeHtmlEntities(value: string) {
-  return value
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) =>
-      String.fromCharCode(Number.parseInt(code, 16)),
-    )
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
-}
+function extractBodyOptions(payload: GmailMessage["payload"]): {
+  plain: string;
+  html: string;
+} {
+  if (!payload) {
+    return { plain: "", html: "" };
+  }
 
-function stripHtml(value: string) {
-  return decodeHtmlEntities(value)
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-function extractBody(payload: GmailMessage["payload"]): string {
-  if (!payload) return "";
+  const children = (payload.parts ?? []).map(extractBodyOptions).filter(Boolean);
+  const childPlain = children.find((item) => item.plain);
+  const childHtml = children.find((item) => item.html);
 
   if (payload.body?.data) {
-    return stripHtml(decodeBase64Url(payload.body.data));
+    const decoded = decodeBase64Url(payload.body.data);
+
+    if (payload.mimeType === "text/plain") {
+      return {
+        plain: cleanEmailText(decoded),
+        html: childHtml?.html ?? "",
+      };
+    }
+
+    if (payload.mimeType === "text/html") {
+      return {
+        plain: childPlain?.plain ?? "",
+        html: cleanEmailText(decoded),
+      };
+    }
   }
 
-  for (const part of payload.parts ?? []) {
-    const extracted = extractBody(part);
-    if (extracted) return extracted;
-  }
+  return {
+    plain: childPlain?.plain ?? "",
+    html: childHtml?.html ?? "",
+  };
+}
 
-  return "";
+function extractBody(payload: GmailMessage["payload"]) {
+  const options = extractBodyOptions(payload);
+  return options.plain || options.html || "";
 }
 
 export async function fetchRecentGmailMessages(accessToken: string, maxResults = 50) {
   const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
   listUrl.searchParams.set("maxResults", String(maxResults));
-  listUrl.searchParams.set("q", "newer_than:90d");
+  listUrl.searchParams.set("q", "newer_than:30d");
 
   const listResponse = await fetch(listUrl, {
     headers: {

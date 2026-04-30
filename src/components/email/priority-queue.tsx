@@ -17,6 +17,7 @@ import {
   DeadlineBadge,
   PriorityBadge,
 } from "@/components/email/triage-badges";
+import { compactEmailText } from "@/lib/email/clean-email-text";
 import { cn } from "@/lib/utils";
 
 type PriorityQueueProps = {
@@ -56,7 +57,7 @@ export function PriorityQueue({
   }
 
   return (
-    <div className="liquid-glass flex h-[820px] max-h-[calc(100vh-6rem)] flex-1 flex-col rounded-2xl border-white/70 bg-white/34 p-5 shadow-2xl shadow-black/20 ring-1 ring-white/45">
+    <div className="liquid-glass flex h-[900px] max-h-[calc(100vh-5rem)] flex-1 flex-col rounded-2xl border-white/70 bg-white/34 p-5 shadow-2xl shadow-black/20 ring-1 ring-white/45">
       <div className="flex items-start justify-between border-b border-black/10 pb-4">
         <div>
           <h2 className="text-2xl font-semibold tracking-normal text-[#141817]">
@@ -238,7 +239,7 @@ function EmailFocusView({
               Original email
             </p>
             <p className="mt-2 rounded-lg bg-[#f1f0ea] p-4 text-sm leading-6 text-[#33423d]">
-              {email.body}
+              {compactEmailText(email.body || email.snippet)}
             </p>
           </div>
         </div>

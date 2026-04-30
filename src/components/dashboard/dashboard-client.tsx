@@ -10,6 +10,7 @@ import { ModeSelector } from "@/components/dashboard/mode-selector";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { PriorityQueue } from "@/components/email/priority-queue";
 import { analyzeInbox, compareTriagedEmail, summarizeInbox } from "@/lib/triage/analyze-inbox";
+import { compactEmailText } from "@/lib/email/clean-email-text";
 import { mockEmails } from "@/lib/mock/mock-emails";
 
 type InboxSource = "mock" | "gmail";
@@ -585,7 +586,7 @@ function TaskList({
                 Original email
               </p>
               <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#33423d]">
-                {selectedTask.email.body || selectedTask.email.snippet}
+                {compactEmailText(selectedTask.email.body || selectedTask.email.snippet)}
               </p>
             </div>
             <div className="rounded-xl border border-black/8 bg-white/62 p-4">
