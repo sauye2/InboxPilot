@@ -482,7 +482,7 @@ export function DashboardClient({
           </section>
         </div>
 
-        <div className="flex h-[880px] min-h-0">
+        <div className="flex h-[980px] min-h-0">
           {hasRun ? (
             <PriorityQueue
               items={filteredItems}
@@ -637,6 +637,7 @@ function TaskList({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isClosingTask, setIsClosingTask] = useState(false);
   const [isEditingTasks, setIsEditingTasks] = useState(false);
+  const [sentSuccessId, setSentSuccessId] = useState<string | null>(null);
   const selectedTask = tasks.find((task) => task.email.id === selectedTaskId) ?? null;
 
   function closeSelectedTask() {
@@ -644,6 +645,7 @@ function TaskList({
     window.setTimeout(() => {
       setSelectedTaskId(null);
       setIsClosingTask(false);
+      setSentSuccessId(null);
     }, 180);
   }
 
@@ -681,7 +683,7 @@ function TaskList({
   }
 
   async function sendGmailReply(emailId: string) {
-    const body = getDraftBody(emailId).trim();
+    const body = normalizeDraftBody(getDraftBody(emailId));
     if (!body) return;
     if (!window.confirm("Send this edited draft as a Gmail reply in the original thread?")) {
       return;
@@ -703,6 +705,11 @@ function TaskList({
       }
 
       onUpdateTask(emailId, { status: "waiting", draftBody: body });
+      setDrafts((current) => ({ ...current, [emailId]: body }));
+      setSentSuccessId(emailId);
+      window.setTimeout(() => {
+        closeSelectedTask();
+      }, 900);
     } catch (error) {
       setSendError(
         error instanceof Error ? error.message : "Unable to send Gmail reply.",
@@ -757,12 +764,20 @@ function TaskList({
         </div>
       ) : selectedTask ? (
         <div
-          className={`mt-5 rounded-xl border border-black/10 bg-[#fffdf7]/78 p-4 duration-300 ${
+          className={`relative mt-5 overflow-hidden rounded-xl border border-black/10 bg-[#fffdf7]/78 p-4 duration-300 ${
             isClosingTask
               ? "animate-out fade-out slide-out-to-bottom-3 zoom-out-95"
               : "animate-in fade-in slide-in-from-bottom-3 zoom-in-95"
           }`}
         >
+          {sentSuccessId === selectedTask.email.id ? (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#fffdf7]/90 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-300">
+              <div className="liquid-glass flex items-center gap-3 rounded-full border-[#c8e8df] bg-[#dff3eb]/88 px-5 py-3 text-sm font-semibold text-[#0e6f68] shadow-lg shadow-black/10">
+                <CheckCircle2 className="size-5" />
+                Email sent successfully
+              </div>
+            </div>
+          ) : null}
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase text-[#68716d]">
@@ -893,51 +908,94 @@ function TaskList({
             </div>
           ) : null}
           {tasks.map((item) => (
-            <div
+            <TaskListRow
               key={item.email.id}
-              className={`group flex items-center gap-2 rounded-xl border border-black/10 bg-[#fffdf7]/78 p-2 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-white hover:shadow-md ${
-                item.triage.reviewed ? "opacity-60" : ""
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditingTasks(false);
-                  setSelectedTaskId(item.email.id);
-                }}
-                className="flex min-w-0 flex-1 items-center justify-between gap-4 rounded-lg px-3 py-2 text-left transition group-hover:bg-[#f1f0ea]/70"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-[#141817]">
-                    {item.email.senderName}
-                  </p>
-                  <p className="mt-1 truncate text-sm text-[#4a504d]">
-                    {item.triage.suggestedNextAction}
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-full border border-black/10 bg-[#ede9df]/70 px-2.5 py-1 text-[11px] font-semibold text-[#59635f]">
-                  {formatTaskStatus(taskStateById.get(item.email.id)?.status ?? "to_reply")}
-                </span>
-                {item.triage.reviewed ? (
-                  <CheckCircle2 className="size-5 shrink-0 text-[#0e6f68]" />
-                ) : null}
-              </button>
-              {isEditingTasks ? (
-                <button
-                  type="button"
-                  aria-label={`Remove ${item.email.senderName} from task list`}
-                  className="animate-in fade-in zoom-in-95 flex size-9 shrink-0 items-center justify-center rounded-full border border-[#c86a3b]/20 bg-[#fff1e8] text-[#9a4d2c] transition hover:bg-[#ffe5d4]"
-                  onClick={() => onRemove(item.email.id)}
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              ) : null}
-            </div>
+              item={item}
+              status={taskStateById.get(item.email.id)?.status ?? "to_reply"}
+              isEditingTasks={isEditingTasks}
+              onOpen={() => {
+                setIsEditingTasks(false);
+                setSelectedTaskId(item.email.id);
+              }}
+              onRemove={() => onRemove(item.email.id)}
+            />
           ))}
         </div>
       )}
     </section>
   );
+}
+
+function TaskListRow({
+  item,
+  status,
+  isEditingTasks,
+  onOpen,
+  onRemove,
+}: {
+  item: TriagedEmail;
+  status: TaskStatus;
+  isEditingTasks: boolean;
+  onOpen: () => void;
+  onRemove: () => void;
+}) {
+  const muted = item.triage.reviewed || status === "waiting" || status === "done";
+
+  return (
+    <div
+      className={`group flex items-center gap-2 rounded-xl border border-black/10 bg-[#fffdf7]/78 p-2 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-white hover:shadow-md ${
+        muted ? "opacity-55" : ""
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex min-w-0 flex-1 items-center justify-between gap-4 rounded-lg px-3 py-2 text-left transition group-hover:bg-[#f1f0ea]/70"
+      >
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-[#141817]">
+            {item.email.senderName}
+          </p>
+          <p className="mt-1 truncate text-sm text-[#4a504d]">
+            {item.triage.suggestedNextAction}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full border border-black/10 bg-[#ede9df]/70 px-2.5 py-1 text-[11px] font-semibold text-[#59635f]">
+          {formatTaskStatus(status)}
+        </span>
+        {item.triage.reviewed ? (
+          <CheckCircle2 className="size-5 shrink-0 text-[#0e6f68]" />
+        ) : null}
+      </button>
+      {isEditingTasks ? (
+        <button
+          type="button"
+          aria-label={`Remove ${item.email.senderName} from task list`}
+          className="animate-in fade-in zoom-in-95 flex size-9 shrink-0 items-center justify-center rounded-full border border-[#c86a3b]/20 bg-[#fff1e8] text-[#9a4d2c] transition hover:bg-[#ffe5d4]"
+          onClick={onRemove}
+        >
+          <Trash2 className="size-4" />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function normalizeDraftBody(value: string) {
+  return value
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim()
+    .split(/\n{2,}/)
+    .map((paragraph) =>
+      paragraph
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .join(" "),
+    )
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 function TaskStatusPicker({

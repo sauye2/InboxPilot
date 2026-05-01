@@ -239,6 +239,23 @@ function encodeBase64Url(value: string) {
     .replace(/=+$/g, "");
 }
 
+export function normalizeOutgoingEmailBody(value: string) {
+  return value
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim()
+    .split(/\n{2,}/)
+    .map((paragraph) =>
+      paragraph
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .join(" "),
+    )
+    .filter(Boolean)
+    .join("\r\n\r\n");
+}
+
 function extractBodyOptions(payload: GmailMessage["payload"]): {
   plain: string;
   html: string;
@@ -403,7 +420,9 @@ export async function sendGmailThreadReply({
     "MIME-Version: 1.0",
   ].filter(Boolean);
 
-  const raw = encodeBase64Url(`${headers.join("\r\n")}\r\n\r\n${body.trim()}`);
+  const raw = encodeBase64Url(
+    `${headers.join("\r\n")}\r\n\r\n${normalizeOutgoingEmailBody(body)}`,
+  );
   const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
     method: "POST",
     headers: {

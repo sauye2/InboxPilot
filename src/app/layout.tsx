@@ -17,6 +17,13 @@ export const metadata: Metadata = {
   title: "InboxPilot - AI-ready email triage",
   description:
     "A local-first MVP for mode-aware inbox triage, prioritization, and review workflows.",
+  icons: {
+    icon: [
+      { url: "/brand/inboxpilot-logo-120.png", sizes: "120x120", type: "image/png" },
+      { url: "/brand/inboxpilot-logo-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/brand/inboxpilot-logo-512.png", sizes: "512x512", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({
