@@ -4,7 +4,11 @@ import { createTriageService, LocalTriageService } from "@/lib/ai/triage-service
 import { compareTriagedEmail, summarizeInbox } from "@/lib/triage/analyze-inbox";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { persistTriagedInbox } from "@/lib/supabase/triage-persistence";
+import {
+  applyTriageFeedbackRules,
+  getTriageFeedbackRules,
+  persistTriagedInbox,
+} from "@/lib/supabase/triage-persistence";
 import type { EmailMessage } from "@/types/email";
 
 const emailSchema = z.object({
@@ -51,17 +55,21 @@ export async function POST(request: Request) {
     }
 
     const { emails, mode, useOpenAI } = payload.data;
+    const admin = createSupabaseAdminClient();
     const service = useOpenAI ? createTriageService() : new LocalTriageService();
     const provider = useOpenAI && process.env.OPENAI_API_KEY ? "openai" : "local";
     const concurrency = provider === "openai" ? getOpenAIConcurrency() : 8;
+    const feedbackRules = await getTriageFeedbackRules(admin, user.id, mode);
     const items = await mapWithConcurrency(emails, concurrency, async (email) => ({
         email: email as EmailMessage,
         triage: await service.analyzeEmail(email as EmailMessage, mode),
-      }));
+      })).then((triaged) =>
+        triaged.map((item) => applyTriageFeedbackRules(item, mode, feedbackRules)),
+      );
 
     items.sort(compareTriagedEmail);
     const persisted = await persistTriagedInbox({
-      admin: createSupabaseAdminClient(),
+      admin,
       userId: user.id,
       mode,
       items,
@@ -74,6 +82,7 @@ export async function POST(request: Request) {
       items: persisted.items,
       summary: summarizeInbox(persisted.items),
       taskEmailIds: persisted.taskEmailIds,
+      taskStates: persisted.taskStates,
     });
   } catch (error) {
     return NextResponse.json(

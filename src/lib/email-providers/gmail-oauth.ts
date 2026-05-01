@@ -3,6 +3,8 @@ import { cleanEmailText, decodeHtmlEntities } from "@/lib/email/clean-email-text
 
 export const GMAIL_READONLY_SCOPE =
   "https://www.googleapis.com/auth/gmail.readonly";
+export const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
+export const GMAIL_SCOPES = [GMAIL_READONLY_SCOPE, GMAIL_SEND_SCOPE].join(" ");
 
 export function getGmailRedirectUri() {
   return (
@@ -62,7 +64,7 @@ export function buildGmailAuthorizationUrl(userId: string) {
   url.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID!);
   url.searchParams.set("redirect_uri", getGmailRedirectUri());
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", GMAIL_READONLY_SCOPE);
+  url.searchParams.set("scope", GMAIL_SCOPES);
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");
   url.searchParams.set("include_granted_scopes", "true");
@@ -133,6 +135,20 @@ export async function refreshGmailAccessToken(refreshToken: string) {
   };
 }
 
+export async function revokeGmailToken(token: string) {
+  const response = await fetch("https://oauth2.googleapis.com/revoke", {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ token }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Google token revoke failed with ${response.status}.`);
+  }
+}
+
 export async function fetchGmailProfile(accessToken: string) {
   const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
     headers: {
@@ -175,6 +191,16 @@ type GmailMessage = {
   };
 };
 
+export type GmailReplyTarget = {
+  gmailMessageId: string;
+  threadId: string;
+  from: string;
+  replyTo: string;
+  subject: string;
+  messageId: string;
+  references: string;
+};
+
 function header(message: GmailMessage, name: string) {
   return (
     message.payload?.headers?.find(
@@ -202,6 +228,14 @@ function parseSender(from: string) {
 function decodeBase64Url(value: string) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   return Buffer.from(normalized, "base64").toString("utf8");
+}
+
+function encodeBase64Url(value: string) {
+  return Buffer.from(value, "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
 
 function extractBodyOptions(payload: GmailMessage["payload"]): {
@@ -307,4 +341,83 @@ export async function fetchRecentGmailMessages(accessToken: string, maxResults =
       threadId: message.threadId,
     };
   });
+}
+
+export async function fetchGmailReplyTarget(
+  accessToken: string,
+  gmailMessageId: string,
+): Promise<GmailReplyTarget> {
+  const messageUrl = new URL(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailMessageId}`,
+  );
+  messageUrl.searchParams.set("format", "metadata");
+  messageUrl.searchParams.append("metadataHeaders", "From");
+  messageUrl.searchParams.append("metadataHeaders", "Reply-To");
+  messageUrl.searchParams.append("metadataHeaders", "Subject");
+  messageUrl.searchParams.append("metadataHeaders", "Message-ID");
+  messageUrl.searchParams.append("metadataHeaders", "References");
+
+  const response = await fetch(messageUrl, {
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gmail reply target fetch failed with ${response.status}.`);
+  }
+
+  const message = (await response.json()) as GmailMessage;
+  const from = header(message, "From");
+
+  return {
+    gmailMessageId: message.id,
+    threadId: message.threadId,
+    from,
+    replyTo: header(message, "Reply-To") || from,
+    subject: header(message, "Subject") || "(No subject)",
+    messageId: header(message, "Message-ID"),
+    references: header(message, "References"),
+  };
+}
+
+export async function sendGmailThreadReply({
+  accessToken,
+  target,
+  body,
+}: {
+  accessToken: string;
+  target: GmailReplyTarget;
+  body: string;
+}) {
+  const to = parseSender(target.replyTo).senderEmail;
+  const subject = /^re:/i.test(target.subject) ? target.subject : `Re: ${target.subject}`;
+  const references = [target.references, target.messageId].filter(Boolean).join(" ");
+  const headers = [
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    target.messageId ? `In-Reply-To: ${target.messageId}` : "",
+    references ? `References: ${references}` : "",
+    "Content-Type: text/plain; charset=UTF-8",
+    "MIME-Version: 1.0",
+  ].filter(Boolean);
+
+  const raw = encodeBase64Url(`${headers.join("\r\n")}\r\n\r\n${body.trim()}`);
+  const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      raw,
+      threadId: target.threadId,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gmail send failed with ${response.status}.`);
+  }
+
+  return (await response.json()) as { id: string; threadId: string };
 }

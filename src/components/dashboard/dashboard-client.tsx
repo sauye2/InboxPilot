@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { CheckCircle2, Loader2, Pencil, Play, ShieldCheck, Trash2, X } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, Pencil, Play, Send, ShieldCheck, Trash2, X } from "lucide-react";
 import type { EmailMessage } from "@/types/email";
-import type { TriageMode, TriageResult, TriagedEmail } from "@/types/triage";
+import type { PriorityLevel, TaskState, TaskStatus, TriageMode, TriageResult, TriagedEmail } from "@/types/triage";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ModeSelector } from "@/components/dashboard/mode-selector";
@@ -47,6 +47,7 @@ export function DashboardClient({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>("needs_action");
   const [taskIds, setTaskIds] = useState<string[]>([]);
+  const [taskStates, setTaskStates] = useState<TaskState[]>([]);
   const [reviewState, setReviewState] = useState<Record<string, Partial<TriageResult>>>({});
   const modeRef = useRef<TriageMode>("job_search");
   const sourceRef = useRef<InboxSource>("mock");
@@ -175,6 +176,7 @@ export function DashboardClient({
       setOpenAIItems(payload.items);
       setActiveEmails(payload.items.map((item: TriagedEmail) => item.email));
       setTaskIds(payload.taskEmailIds ?? []);
+      setTaskStates(payload.taskStates ?? []);
       setHasRun(true);
       setSelectedId(null);
     } catch (error) {
@@ -213,7 +215,59 @@ export function DashboardClient({
 
   function addTask(id: string) {
     setTaskIds((current) => (current.includes(id) ? current : [...current, id]));
+    setTaskStates((current) =>
+      current.some((task) => task.emailId === id)
+        ? current
+        : [...current, { emailId: id, status: "to_reply", draftSubject: null, draftBody: null }],
+    );
     void saveReviewAction(id, "task_created");
+  }
+
+  function updateTaskState(id: string, patch: Partial<TaskState>) {
+    setTaskStates((current) =>
+      current.map((task) => (task.emailId === id ? { ...task, ...patch } : task)),
+    );
+    void fetch("/api/tasks", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        emailId: id,
+        status: patch.status,
+        draftSubject: patch.draftSubject,
+        draftBody: patch.draftBody,
+      }),
+    });
+  }
+
+  function saveTriageFeedback(
+    emailId: string,
+    patch: { categoryOverride?: string; priorityOverride?: PriorityLevel },
+  ) {
+    setOpenAIItems((current) =>
+      current
+        ? current.map((item) =>
+            item.email.id === emailId
+              ? {
+                  ...item,
+                  triage: {
+                    ...item.triage,
+                    category: patch.categoryOverride ?? item.triage.category,
+                    priority: patch.priorityOverride ?? item.triage.priority,
+                    requiresAction:
+                      patch.categoryOverride === "Inbox Noise"
+                        ? false
+                        : item.triage.requiresAction,
+                  },
+                }
+              : item,
+          )
+        : current,
+    );
+    void fetch("/api/triage-feedback", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ emailId, mode, ...patch }),
+    });
   }
 
   async function saveReviewAction(
@@ -325,6 +379,8 @@ export function DashboardClient({
                     setOpenAIItems(null);
                     setHasRun(false);
                     setSelectedId(null);
+                    setTaskIds([]);
+                    setTaskStates([]);
                   }}
                     className={`relative z-10 flex h-full items-center justify-center rounded-md text-sm font-semibold transition-colors duration-300 ${
                       selected
@@ -357,6 +413,7 @@ export function DashboardClient({
               setSelectedId(null);
               setSelectedFilter("needs_action");
               setTaskIds([]);
+              setTaskStates([]);
             }}
           />
 
@@ -392,6 +449,8 @@ export function DashboardClient({
               onPin={pin}
               onBack={() => setSelectedId(null)}
               onAddTask={addTask}
+              mode={mode}
+              onFeedback={saveTriageFeedback}
             />
           ) : (
             <div className="liquid-glass flex min-h-[720px] flex-1 flex-col items-center justify-center rounded-2xl border-dashed border-black/15 bg-white/48 p-10 text-center ring-1 ring-white/40">
@@ -410,10 +469,13 @@ export function DashboardClient({
       <section className="mt-8">
         <TaskList
           tasks={analyzed.items.filter((item) => taskIds.includes(item.email.id))}
+          taskStates={taskStates}
           onToggleReviewed={toggleReviewed}
-          onRemove={(id) =>
-            setTaskIds((current) => current.filter((taskId) => taskId !== id))
-          }
+          onRemove={(id) => {
+            setTaskIds((current) => current.filter((taskId) => taskId !== id));
+            updateTaskState(id, { status: "archived" });
+          }}
+          onUpdateTask={updateTaskState}
         />
       </section>
 
@@ -501,16 +563,33 @@ function OpenAIConsentDialog({
 
 function TaskList({
   tasks,
+  taskStates,
   onToggleReviewed,
   onRemove,
+  onUpdateTask,
 }: {
   tasks: TriagedEmail[];
+  taskStates: TaskState[];
   onToggleReviewed: (id: string) => void;
   onRemove: (id: string) => void;
+  onUpdateTask: (id: string, patch: Partial<TaskState>) => void;
 }) {
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const taskStateById = useMemo(
+    () => new Map(taskStates.map((task) => [task.emailId, task])),
+    [taskStates],
+  );
+  const [drafts, setDrafts] = useState<Record<string, string>>(
+    Object.fromEntries(
+      taskStates
+        .filter((task) => task.draftBody)
+        .map((task) => [task.emailId, task.draftBody ?? ""]),
+    ),
+  );
   const [draftingId, setDraftingId] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [tone, setTone] = useState<"concise" | "professional" | "warm" | "firm">("professional");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isClosingTask, setIsClosingTask] = useState(false);
   const [isEditingTasks, setIsEditingTasks] = useState(false);
@@ -532,9 +611,9 @@ function TaskList({
       const response = await fetch("/api/reply-suggestion", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ emailId, tone: "professional" }),
+        body: JSON.stringify({ emailId, tone }),
       });
-      const payload = await response.json();
+      const payload = await readJsonResponse(response);
 
       if (!response.ok) {
         throw new Error(payload.error ?? "Unable to draft reply.");
@@ -544,6 +623,10 @@ function TaskList({
         ...current,
         [emailId]: payload.suggestion.body,
       }));
+      onUpdateTask(emailId, {
+        draftSubject: payload.suggestion.subject,
+        draftBody: payload.suggestion.body,
+      });
     } catch (error) {
       setDraftError(
         error instanceof Error ? error.message : "Unable to draft reply.",
@@ -551,6 +634,42 @@ function TaskList({
     } finally {
       setDraftingId(null);
     }
+  }
+
+  async function sendGmailReply(emailId: string) {
+    const body = getDraftBody(emailId).trim();
+    if (!body) return;
+    if (!window.confirm("Send this edited draft as a Gmail reply in the original thread?")) {
+      return;
+    }
+
+    setSendingId(emailId);
+    setSendError(null);
+
+    try {
+      const response = await fetch("/api/email-providers/gmail/send-reply", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ emailId, body }),
+      });
+      const payload = await readJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Unable to send Gmail reply.");
+      }
+
+      onUpdateTask(emailId, { status: "waiting", draftBody: body });
+    } catch (error) {
+      setSendError(
+        error instanceof Error ? error.message : "Unable to send Gmail reply.",
+      );
+    } finally {
+      setSendingId(null);
+    }
+  }
+
+  function getDraftBody(emailId: string) {
+    return drafts[emailId] ?? taskStateById.get(emailId)?.draftBody ?? "";
   }
 
   return (
@@ -611,6 +730,10 @@ function TaskList({
               <p className="mt-1 text-sm text-[#68716d]">
                 {selectedTask.email.senderName} &lt;{selectedTask.email.senderEmail}&gt;
               </p>
+              <TaskStatusPicker
+                status={taskStateById.get(selectedTask.email.id)?.status ?? "to_reply"}
+                onChange={(status) => onUpdateTask(selectedTask.email.id, { status })}
+              />
             </div>
             <button
               type="button"
@@ -636,21 +759,40 @@ function TaskList({
                 <p className="text-xs font-semibold uppercase text-[#68716d]">
                   Draft reply
                 </p>
-                <button
-                  className="rounded-full border border-black/10 bg-[#fffdf7]/80 px-3 py-1.5 text-xs font-semibold text-[#33423d] transition hover:bg-white"
-                  disabled={draftingId === selectedTask.email.id}
-                  onClick={() => generateReply(selectedTask.email.id)}
-                >
-                  {draftingId === selectedTask.email.id ? "Drafting..." : "Generate draft"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={tone}
+                    onChange={(event) =>
+                      setTone(event.target.value as "concise" | "professional" | "warm" | "firm")
+                    }
+                    className="h-8 rounded-full border border-black/10 bg-[#fffdf7]/80 px-3 text-xs font-semibold text-[#33423d] outline-none"
+                  >
+                    <option value="professional">Professional</option>
+                    <option value="concise">Concise</option>
+                    <option value="warm">Warm</option>
+                    <option value="firm">Firm</option>
+                  </select>
+                  <button
+                    className="rounded-full border border-black/10 bg-[#fffdf7]/80 px-3 py-1.5 text-xs font-semibold text-[#33423d] transition hover:bg-white"
+                    disabled={draftingId === selectedTask.email.id}
+                    onClick={() => generateReply(selectedTask.email.id)}
+                  >
+                    {draftingId === selectedTask.email.id ? "Drafting..." : "Generate draft"}
+                  </button>
+                </div>
               </div>
               <textarea
-                value={drafts[selectedTask.email.id] ?? ""}
+                value={getDraftBody(selectedTask.email.id)}
                 onChange={(event) =>
                   setDrafts((current) => ({
                     ...current,
                     [selectedTask.email.id]: event.target.value,
                   }))
+                }
+                onBlur={(event) =>
+                  onUpdateTask(selectedTask.email.id, {
+                    draftBody: event.target.value,
+                  })
                 }
                 placeholder="Generate a draft, then edit it here."
                 className="mt-3 min-h-44 w-full resize-y rounded-lg border border-black/10 bg-[#fffdf7]/85 p-3 text-sm leading-6 text-[#33423d] outline-none transition focus:border-[#0e6f68]/40 focus:ring-2 focus:ring-[#8bd3c7]/30"
@@ -665,6 +807,24 @@ function TaskList({
             >
               {selectedTask.triage.reviewed ? "Unmark reviewed" : "Mark reviewed"}
             </button>
+            <button
+              className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white/70 px-3 py-1.5 text-sm transition hover:bg-white disabled:opacity-45"
+              disabled={!getDraftBody(selectedTask.email.id)}
+              onClick={() => navigator.clipboard.writeText(getDraftBody(selectedTask.email.id))}
+            >
+              <Copy className="size-3.5" />
+              Copy draft
+            </button>
+            {selectedTask.email.provider === "gmail" ? (
+              <button
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#0e6f68]/20 bg-[#dff4ef] px-3 py-1.5 text-sm font-semibold text-[#0e6f68] transition hover:bg-[#cff0e9] disabled:opacity-45"
+                disabled={!getDraftBody(selectedTask.email.id) || sendingId === selectedTask.email.id}
+                onClick={() => sendGmailReply(selectedTask.email.id)}
+              >
+                <Send className="size-3.5" />
+                {sendingId === selectedTask.email.id ? "Sending..." : "Send Gmail reply"}
+              </button>
+            ) : null}
             <button
               className="rounded-full border border-[#c86a3b]/20 bg-[#fff1e8] px-3 py-1.5 text-sm font-medium text-[#9a4d2c]"
               onClick={() => {
@@ -681,6 +841,11 @@ function TaskList({
           {draftError ? (
             <div className="rounded-xl border border-[#c86a3b]/20 bg-[#fff1e8] px-4 py-3 text-sm text-[#8b4d2c]">
               {draftError}
+            </div>
+          ) : null}
+          {sendError ? (
+            <div className="rounded-xl border border-[#c86a3b]/20 bg-[#fff1e8] px-4 py-3 text-sm text-[#8b4d2c]">
+              {sendError}
             </div>
           ) : null}
           {tasks.map((item) => (
@@ -706,6 +871,9 @@ function TaskList({
                     {item.triage.suggestedNextAction}
                   </p>
                 </div>
+                <span className="shrink-0 rounded-full border border-black/10 bg-[#ede9df]/70 px-2.5 py-1 text-[11px] font-semibold text-[#59635f]">
+                  {formatTaskStatus(taskStateById.get(item.email.id)?.status ?? "to_reply")}
+                </span>
                 {item.triage.reviewed ? (
                   <CheckCircle2 className="size-5 shrink-0 text-[#0e6f68]" />
                 ) : null}
@@ -726,6 +894,46 @@ function TaskList({
       )}
     </section>
   );
+}
+
+function TaskStatusPicker({
+  status,
+  onChange,
+}: {
+  status: TaskStatus;
+  onChange: (status: TaskStatus) => void;
+}) {
+  const options: Array<{ value: TaskStatus; label: string }> = [
+    { value: "to_reply", label: "To reply" },
+    { value: "waiting", label: "Waiting" },
+    { value: "done", label: "Done" },
+  ];
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+            status === option.value
+              ? "border-[#0e6f68]/25 bg-[#dff4ef] text-[#0e6f68]"
+              : "border-black/10 bg-white/60 text-[#59635f] hover:bg-white"
+          }`}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function formatTaskStatus(status: TaskStatus) {
+  if (status === "to_reply") return "To reply";
+  if (status === "waiting") return "Waiting";
+  if (status === "done") return "Done";
+  return "Archived";
 }
 
 function ScanningState() {

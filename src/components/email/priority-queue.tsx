@@ -8,7 +8,7 @@ import {
   ListPlus,
   Pin,
 } from "lucide-react";
-import type { TriagedEmail } from "@/types/triage";
+import type { PriorityLevel, TriageMode, TriagedEmail } from "@/types/triage";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -18,6 +18,7 @@ import {
   PriorityBadge,
 } from "@/components/email/triage-badges";
 import { compactEmailText } from "@/lib/email/clean-email-text";
+import { getModeDefinition } from "@/lib/triage/modes";
 import { cn } from "@/lib/utils";
 
 type PriorityQueueProps = {
@@ -28,6 +29,11 @@ type PriorityQueueProps = {
   onPin: (id: string) => void;
   onBack: () => void;
   onAddTask: (id: string) => void;
+  mode: TriageMode;
+  onFeedback: (
+    id: string,
+    patch: { categoryOverride?: string; priorityOverride?: PriorityLevel },
+  ) => void;
 };
 
 export function PriorityQueue({
@@ -38,8 +44,11 @@ export function PriorityQueue({
   onPin,
   onBack,
   onAddTask,
+  mode,
+  onFeedback,
 }: PriorityQueueProps) {
   const selectedItem = items.find((item) => item.email.id === selectedId) ?? null;
+  const categories = getModeDefinition(mode).categories;
 
   if (items.length === 0) {
     return (
@@ -80,6 +89,8 @@ export function PriorityQueue({
             onToggleReviewed={onToggleReviewed}
             onAddTask={onAddTask}
             onPin={onPin}
+            categories={categories}
+            onFeedback={onFeedback}
           />
         ) : (
           <ScrollArea className="mt-4 min-h-0 flex-1 pr-3">
@@ -91,6 +102,8 @@ export function PriorityQueue({
                   onSelect={onSelect}
                   onToggleReviewed={onToggleReviewed}
                   onAddTask={onAddTask}
+                  categories={categories}
+                  onFeedback={onFeedback}
                 />
               ))}
             </div>
@@ -106,11 +119,18 @@ function QueueItem({
   onSelect,
   onToggleReviewed,
   onAddTask,
+  categories,
+  onFeedback,
 }: {
   item: TriagedEmail;
   onSelect: (id: string) => void;
   onToggleReviewed: (id: string) => void;
   onAddTask: (id: string) => void;
+  categories: string[];
+  onFeedback: (
+    id: string,
+    patch: { categoryOverride?: string; priorityOverride?: PriorityLevel },
+  ) => void;
 }) {
   const { email, triage } = item;
 
@@ -191,6 +211,13 @@ function QueueItem({
           Add to task list
         </Button>
       </div>
+      <FeedbackControls
+        emailId={email.id}
+        category={triage.category}
+        priority={triage.priority}
+        categories={categories}
+        onFeedback={onFeedback}
+      />
     </article>
   );
 }
@@ -201,12 +228,19 @@ function EmailFocusView({
   onToggleReviewed,
   onAddTask,
   onPin,
+  categories,
+  onFeedback,
 }: {
   item: TriagedEmail;
   onBack: () => void;
   onToggleReviewed: (id: string) => void;
   onAddTask: (id: string) => void;
   onPin: (id: string) => void;
+  categories: string[];
+  onFeedback: (
+    id: string,
+    patch: { categoryOverride?: string; priorityOverride?: PriorityLevel },
+  ) => void;
 }) {
   const { email, triage } = item;
 
@@ -245,6 +279,14 @@ function EmailFocusView({
               <DeadlineBadge deadline={triage.deadline} />
             ) : null}
           </div>
+          <FeedbackControls
+            emailId={email.id}
+            category={triage.category}
+            priority={triage.priority}
+            categories={categories}
+            onFeedback={onFeedback}
+            className="mt-4"
+          />
         </div>
 
         <div className="mt-6 grid gap-5">
@@ -276,6 +318,61 @@ function EmailFocusView({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function FeedbackControls({
+  emailId,
+  category,
+  priority,
+  categories,
+  onFeedback,
+  className,
+}: {
+  emailId: string;
+  category: string;
+  priority: PriorityLevel;
+  categories: string[];
+  onFeedback: (
+    id: string,
+    patch: { categoryOverride?: string; priorityOverride?: PriorityLevel },
+  ) => void;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn("flex flex-wrap items-center gap-2", className)}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <select
+        aria-label="Wrong category: move email"
+        value={category}
+        onChange={(event) =>
+          onFeedback(emailId, { categoryOverride: event.target.value })
+        }
+        className="h-8 rounded-full border border-black/10 bg-white/70 px-3 text-xs font-semibold text-[#33423d] outline-none transition hover:bg-white"
+      >
+        {categories.map((candidate) => (
+          <option key={candidate} value={candidate}>
+            {candidate}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="Not important: adjust priority"
+        value={priority}
+        onChange={(event) =>
+          onFeedback(emailId, {
+            priorityOverride: event.target.value as PriorityLevel,
+          })
+        }
+        className="h-8 rounded-full border border-black/10 bg-white/70 px-3 text-xs font-semibold text-[#33423d] outline-none transition hover:bg-white"
+      >
+        <option value="high">High priority</option>
+        <option value="medium">Medium priority</option>
+        <option value="low">Low priority</option>
+      </select>
     </div>
   );
 }

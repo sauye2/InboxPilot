@@ -6,14 +6,17 @@ import { ArrowRight, LockKeyhole, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { revokeGmailToken } from "@/lib/email-providers/gmail-oauth";
+import { decryptSecret } from "@/lib/security/encryption";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { auditProviderEvent } from "@/lib/supabase/triage-persistence";
 
 const providers = [
   {
     name: "Gmail",
-    detail: "Read-only Gmail OAuth is available for signed-in users. Tokens are not persisted until encrypted storage is added.",
-    status: "Read-only beta",
+    detail: "Gmail OAuth is available for signed-in users. InboxPilot can scan recent messages and send explicitly approved replies.",
+    status: "Gmail beta",
     href: "/api/email-providers/gmail/start",
     disabled: false,
   },
@@ -74,6 +77,43 @@ async function disconnectGmailAction() {
     .maybeSingle();
 
   if (connection?.id) {
+    const { data: token } = await admin
+      .from("email_connection_tokens")
+      .select("encrypted_refresh_token, encryption_iv, encryption_tag")
+      .eq("connection_id", connection.id)
+      .maybeSingle();
+
+    if (token) {
+      try {
+        const refreshToken = decryptSecret({
+          ciphertext: token.encrypted_refresh_token,
+          iv: token.encryption_iv,
+          tag: token.encryption_tag,
+        });
+        await revokeGmailToken(refreshToken);
+        await auditProviderEvent({
+          admin,
+          userId: user.id,
+          connectionId: connection.id,
+          provider: "gmail",
+          eventType: "revoked",
+          message: "Gmail refresh token revoked at Google.",
+        });
+      } catch (error) {
+        await auditProviderEvent({
+          admin,
+          userId: user.id,
+          connectionId: connection.id,
+          provider: "gmail",
+          eventType: "revoked",
+          message:
+            error instanceof Error
+              ? `Local disconnect completed; Google revoke failed: ${error.message}`
+              : "Local disconnect completed; Google revoke failed.",
+        });
+      }
+    }
+
     await admin
       .from("email_connection_tokens")
       .delete()
@@ -120,9 +160,9 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
               Connect only what you choose.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/64">
-              InboxPilot now supports the first Gmail OAuth path for signed-in
-              users. This first pass requests read-only access and does not store
-              full email bodies by default.
+              InboxPilot supports Gmail OAuth for signed-in users. It scans
+              recent messages and only sends a reply after you approve the
+              editable draft.
             </p>
             {message ? (
               <div className="mt-6 rounded-lg border border-[#8bd3c7]/20 bg-[#8bd3c7]/12 px-4 py-3 text-sm text-[#8bd3c7]">
@@ -165,10 +205,10 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
               </div>
             </div>
             <div className="mt-6 grid gap-3 text-sm leading-6 text-white/68">
-              <p>OAuth credentials stay server-side.</p>
+              <p>OAuth credentials stay encrypted and server-side.</p>
               <p>Gmail requires explicit Google consent.</p>
+              <p>Replies are only sent after direct approval.</p>
               <p>No full email body is retained by default.</p>
-              <p>Mock data powers the current triage experience.</p>
             </div>
           </div>
         </section>

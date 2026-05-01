@@ -21,6 +21,15 @@ export type TriageResult = {
   snoozedUntil: string | null;
 };
 
+export type TaskStatus = "to_reply" | "waiting" | "done" | "archived";
+
+export type TaskState = {
+  emailId: string;
+  status: TaskStatus;
+  draftSubject: string | null;
+  draftBody: string | null;
+};
+
 export type TriagedEmail = {
   email: import("./email").EmailMessage;
   triage: TriageResult;
