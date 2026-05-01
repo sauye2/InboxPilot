@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  archiveGmailMessage,
   refreshGmailAccessToken,
-  trashGmailMessage,
 } from "@/lib/email-providers/gmail-oauth";
 import { decryptSecret } from "@/lib/security/encryption";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -12,7 +12,7 @@ import {
   findPersistedEmailMessage,
 } from "@/lib/supabase/triage-persistence";
 
-const trashSchema = z.object({
+const archiveSchema = z.object({
   emailId: z.string().min(1),
 });
 
@@ -23,14 +23,14 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Sign in before deleting Gmail messages." }, { status: 401 });
+    return NextResponse.json({ error: "Sign in before archiving Gmail messages." }, { status: 401 });
   }
 
-  const payload = trashSchema.safeParse(await request.json());
+  const payload = archiveSchema.safeParse(await request.json());
 
   if (!payload.success) {
     return NextResponse.json(
-      { error: "Invalid Gmail delete request.", details: payload.error.flatten() },
+      { error: "Invalid Gmail archive request.", details: payload.error.flatten() },
       { status: 400 },
     );
   }
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
   if (!persisted || persisted.email.provider !== "gmail") {
     return NextResponse.json(
-      { error: "This action can only delete scanned Gmail messages." },
+      { error: "This action can only archive scanned Gmail messages." },
       { status: 400 },
     );
   }
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   }
 
   if (!token) {
-    return NextResponse.json({ error: "Reconnect Gmail before deleting messages." }, { status: 409 });
+    return NextResponse.json({ error: "Reconnect Gmail before archiving messages." }, { status: 409 });
   }
 
   try {
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     });
     const refreshed = await refreshGmailAccessToken(refreshToken);
     const gmailMessageId = persisted.email.id.replace(/^gmail:/, "");
-    const trashed = await trashGmailMessage({
+    const archived = await archiveGmailMessage({
       accessToken: refreshed.access_token,
       gmailMessageId,
     });
@@ -78,19 +78,19 @@ export async function POST(request: Request) {
       userId: user.id,
       connectionId: token.connection_id,
       provider: "gmail",
-      eventType: "trash_success",
-      message: trashed.id,
+      eventType: "archive_success",
+      message: archived.id,
     });
 
-    return NextResponse.json({ ok: true, messageId: trashed.id, threadId: trashed.threadId });
+    return NextResponse.json({ ok: true, messageId: archived.id, threadId: archived.threadId });
   } catch (error) {
     await auditProviderEvent({
       admin,
       userId: user.id,
       connectionId: token.connection_id,
       provider: "gmail",
-      eventType: "trash_failed",
-      message: error instanceof Error ? error.message : "Unknown Gmail trash error.",
+      eventType: "archive_failed",
+      message: error instanceof Error ? error.message : "Unknown Gmail archive error.",
     });
 
     return NextResponse.json(
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
         error:
           error instanceof Error
             ? error.message
-            : "Unable to delete Gmail message.",
+            : "Unable to archive Gmail message.",
       },
       { status: 500 },
     );

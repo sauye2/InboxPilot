@@ -230,8 +230,8 @@ export function DashboardClient({
 
     const confirmed = window.confirm(
       item.email.provider === "gmail"
-        ? "Delete this Gmail message? It will be moved to Gmail Trash."
-        : "Remove this mock email from the current scan?",
+        ? "Archive this Gmail message? It will be removed from your inbox but kept in All Mail."
+        : "Archive this mock email from the current scan?",
     );
 
     if (!confirmed) return;
@@ -240,7 +240,7 @@ export function DashboardClient({
 
     try {
       if (item.email.provider === "gmail") {
-        const response = await fetch("/api/email-providers/gmail/trash", {
+        const response = await fetch("/api/email-providers/gmail/archive", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ emailId: id }),
@@ -248,7 +248,7 @@ export function DashboardClient({
         const payload = await readJsonResponse(response);
 
         if (!response.ok) {
-          throw new Error(payload.error ?? "Unable to delete Gmail message.");
+          throw new Error(payload.error ?? "Unable to archive Gmail message.");
         }
       }
 
@@ -261,7 +261,7 @@ export function DashboardClient({
       setSelectedId((current) => (current === id ? null : current));
     } catch (error) {
       setScanError(
-        error instanceof Error ? error.message : "Unable to delete email.",
+        error instanceof Error ? error.message : "Unable to archive email.",
       );
     }
   }

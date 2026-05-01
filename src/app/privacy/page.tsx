@@ -19,11 +19,11 @@ const sections = [
   },
   {
     title: "Gmail data access",
-    body: "InboxPilot only accesses Gmail data after you explicitly sign in and connect Gmail. Gmail access is used to read recent messages for triage, send replies only after you approve them, and move messages to trash only after you confirm the delete action.",
+    body: "InboxPilot only accesses Gmail data after you explicitly sign in and connect Gmail. Gmail access is used to read recent messages for triage, send replies only after you approve them, and archive messages only after you confirm the archive action.",
   },
   {
     title: "How we use Gmail data",
-    body: "Gmail message data is used to provide user-facing email triage, priority ranking, category labels, task workflows, reply drafting, sending approved replies, and confirmed deletion actions. InboxPilot does not use Gmail data for advertising or unrelated product analytics.",
+    body: "Gmail message data is used to provide user-facing email triage, priority ranking, category labels, task workflows, reply drafting, sending approved replies, and confirmed archive actions. InboxPilot does not use Gmail data for advertising or unrelated product analytics.",
   },
   {
     title: "AI processing",
@@ -47,7 +47,7 @@ const sections = [
   },
   {
     title: "Your controls",
-    body: "You can disconnect Gmail from the Connections page, opt in or out of OpenAI-assisted processing from Settings, review or remove tasks, and choose whether to send or delete messages. InboxPilot does not send replies or delete emails without your confirmation.",
+    body: "You can disconnect Gmail from the Connections page, opt in or out of OpenAI-assisted processing from Settings, review or remove tasks, and choose whether to send replies or archive messages. InboxPilot does not send replies or archive emails without your confirmation.",
   },
   {
     title: "Children's privacy",

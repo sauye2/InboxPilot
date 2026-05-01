@@ -23,7 +23,7 @@ const terms = [
   },
   {
     title: "User-approved Gmail actions",
-    body: "InboxPilot may read recent Gmail messages, send replies, and move messages to trash only after you grant access. Sending and deletion actions require explicit approval in the app before they are performed.",
+    body: "InboxPilot may read recent Gmail messages, send replies, and archive messages only after you grant access. Sending and archive actions require explicit approval in the app before they are performed.",
   },
   {
     title: "User content",

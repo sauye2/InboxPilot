@@ -207,6 +207,8 @@ export async function auditProviderEvent({
     | "refresh_failed"
     | "fetch_failed"
     | "revoked"
+    | "archive_success"
+    | "archive_failed"
     | "send_success"
     | "send_failed"
     | "trash_success"

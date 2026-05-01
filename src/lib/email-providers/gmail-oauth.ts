@@ -474,7 +474,7 @@ export async function sendGmailThreadReply({
   return (await response.json()) as { id: string; threadId: string };
 }
 
-export async function trashGmailMessage({
+export async function archiveGmailMessage({
   accessToken,
   gmailMessageId,
 }: {
@@ -482,18 +482,22 @@ export async function trashGmailMessage({
   gmailMessageId: string;
 }) {
   const response = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailMessageId}/trash`,
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailMessageId}/modify`,
     {
       method: "POST",
       headers: {
         authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json",
       },
+      body: JSON.stringify({
+        removeLabelIds: ["INBOX"],
+      }),
     },
   );
 
   if (!response.ok) {
-    throw new GmailApiError(`Gmail trash failed with ${response.status}.`, response.status);
+    throw new GmailApiError(`Gmail archive failed with ${response.status}.`, response.status);
   }
 
-  return (await response.json()) as { id: string; threadId: string };
+  return (await response.json()) as { id: string; threadId: string; labelIds?: string[] };
 }

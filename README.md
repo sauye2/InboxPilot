@@ -139,7 +139,7 @@ Future implementations:
 ## Gmail OAuth Setup
 
 The Gmail path currently uses the modify scope so InboxPilot can read recent
-messages, send user-approved replies, and move user-confirmed messages to trash:
+messages, send user-approved replies, and archive user-confirmed messages:
 
 ```txt
 https://www.googleapis.com/auth/gmail.modify

@@ -229,7 +229,7 @@ function QueueItem({
           />
           <button
             type="button"
-            aria-label="Delete email"
+            aria-label="Archive email"
             className="inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-[#e9b9a9] bg-[#fff1e8] text-[#b44927] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#ffe2d6] hover:text-[#8f341d]"
             onClick={(event) => {
               event.stopPropagation();
@@ -346,7 +346,7 @@ function EmailFocusView({
             onClick={() => onDeleteEmail(email.id)}
           >
             <Trash2 className="size-4" />
-            Delete
+            Archive
           </Button>
         </div>
       </div>
