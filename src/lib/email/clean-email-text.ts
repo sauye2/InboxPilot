@@ -31,9 +31,12 @@ export function cleanEmailText(value: string) {
 }
 
 export function compactEmailText(value: string) {
-  return cleanEmailText(value)
+  const lines = cleanEmailText(value)
     .split(/\n+/)
     .map((line) => line.trim())
-    .filter(Boolean)
-    .join("\n\n");
+    .filter(Boolean);
+
+  return lines
+    .filter((line, index) => line.toLowerCase() !== lines[index - 1]?.toLowerCase())
+    .join("\n");
 }

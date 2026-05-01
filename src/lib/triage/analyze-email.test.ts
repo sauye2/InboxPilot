@@ -296,6 +296,29 @@ describe("analyzeEmail", () => {
     expect(repayment.category).toBe("Inbox Noise");
     expect(deployment.category).toBe("Project Updates");
   });
+
+  it("keeps passive job alerts out of working mode", () => {
+    const result = analyzeEmail(
+      {
+        id: "gmail:test-linkedin-work",
+        provider: "gmail",
+        senderName: "LinkedIn",
+        senderEmail: "jobs-noreply@linkedin.com",
+        subject: "Airbnb is hiring for a Remote role",
+        body: "Airbnb is hiring for a Remote role. View this job alert.",
+        snippet: "Airbnb is hiring for a Remote role.",
+        receivedAt: new Date().toISOString(),
+        isRead: true,
+        labels: [],
+        threadId: "thread-linkedin-work",
+      },
+      "work",
+    );
+
+    expect(result.category).toBe("Inbox Noise");
+    expect(result.requiresAction).toBe(false);
+    expect(result.priority).toBe("low");
+  });
 });
 
 describe("analyzeInbox", () => {

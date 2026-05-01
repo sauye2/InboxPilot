@@ -85,6 +85,8 @@ export function refineCategoryForMode(text: string, mode: TriageMode, category: 
 
   if (mode === "work") {
     if (
+      isJobSearchText(normalized) ||
+      isPassiveJobAlert(normalized) ||
       isAuthCodeNoise(normalized) ||
       isPromotionalNoise(normalized) ||
       isPersonalFinance(normalized) ||
