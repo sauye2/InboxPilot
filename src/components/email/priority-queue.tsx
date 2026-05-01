@@ -90,6 +90,7 @@ export function PriorityQueue({
                   item={item}
                   onSelect={onSelect}
                   onToggleReviewed={onToggleReviewed}
+                  onAddTask={onAddTask}
                 />
               ))}
             </div>
@@ -104,10 +105,12 @@ function QueueItem({
   item,
   onSelect,
   onToggleReviewed,
+  onAddTask,
 }: {
   item: TriagedEmail;
   onSelect: (id: string) => void;
   onToggleReviewed: (id: string) => void;
+  onAddTask: (id: string) => void;
 }) {
   const { email, triage } = item;
 
@@ -174,6 +177,18 @@ function QueueItem({
         >
           <CheckCircle2 className="size-3.5" />
           {triage.reviewed ? "Unmark reviewed" : "Mark reviewed"}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 border-black/10 bg-white/70"
+          onClick={(event) => {
+            event.stopPropagation();
+            onAddTask(email.id);
+          }}
+        >
+          <ListPlus className="size-3.5" />
+          Add to task list
         </Button>
       </div>
     </article>
