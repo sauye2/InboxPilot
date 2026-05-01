@@ -6,9 +6,10 @@ import { modeDefinitions } from "@/lib/triage/modes";
 type ModeSelectorProps = {
   value: TriageMode;
   onChange: (mode: TriageMode) => void;
+  disabled?: boolean;
 };
 
-export function ModeSelector({ value, onChange }: ModeSelectorProps) {
+export function ModeSelector({ value, onChange, disabled = false }: ModeSelectorProps) {
   const activeIndex = modeDefinitions.findIndex((mode) => mode.id === value);
 
   return (
@@ -29,10 +30,11 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
             <button
               key={mode.id}
               type="button"
+              disabled={disabled}
               onClick={() => onChange(mode.id)}
               className={`relative z-10 flex h-full items-center justify-center rounded-lg px-3 text-center text-sm font-semibold transition-colors duration-300 ${
                 selected ? "text-[#141817]" : "text-[#59635f] hover:text-[#141817]"
-              }`}
+              } ${disabled ? "cursor-not-allowed opacity-55 hover:text-[#59635f]" : ""}`}
             >
               {mode.shortLabel}
             </button>

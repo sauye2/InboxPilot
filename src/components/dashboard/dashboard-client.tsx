@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { CheckCircle2, Loader2, Pencil, Play, ShieldCheck, Trash2, X } from "lucide-react";
 import type { EmailMessage } from "@/types/email";
 import type { TriageMode, TriageResult, TriagedEmail } from "@/types/triage";
@@ -48,8 +48,11 @@ export function DashboardClient({
   const [selectedFilter, setSelectedFilter] = useState<string>("needs_action");
   const [taskIds, setTaskIds] = useState<string[]>([]);
   const [reviewState, setReviewState] = useState<Record<string, Partial<TriageResult>>>({});
+  const modeRef = useRef<TriageMode>("job_search");
+  const sourceRef = useRef<InboxSource>("mock");
   const initialConsent: OpenAIConsentPreference =
     initialAIProcessingEnabled && initialOpenAITriageEnabled ? "accepted" : null;
+  const controlsLocked = isScanning || showConsent;
 
   const analyzed = useMemo(() => {
     if (!openAIItems) {
@@ -124,7 +127,11 @@ export function DashboardClient({
   }
 
   function runScan() {
+    if (isScanning) return;
+
     const preference = getOpenAIConsentPreference();
+    const scanSource = sourceRef.current;
+    const scanMode = modeRef.current;
 
     if (!preference) {
       setPendingScan(true);
@@ -132,32 +139,29 @@ export function DashboardClient({
       return;
     }
 
-    void executeScan(preference === "accepted");
+    void executeScan(preference === "accepted", scanSource, scanMode);
   }
 
-  async function executeScan(useOpenAI: boolean) {
+  async function executeScan(
+    useOpenAI: boolean,
+    scanSource = sourceRef.current,
+    scanMode = modeRef.current,
+  ) {
     setIsScanning(true);
     setScanError(null);
 
     try {
-      let emails = source === "mock" ? mockEmails : activeEmails;
+      let emails = scanSource === "mock" ? mockEmails : activeEmails;
 
-      if (source === "gmail") {
-        const response = await fetch("/api/email-providers/gmail/messages");
-        const payload = await readJsonResponse(response);
-
-        if (!response.ok) {
-          throw new Error(payload.error ?? "Unable to fetch Gmail messages.");
-        }
-
-        emails = payload.messages;
+      if (scanSource === "gmail") {
+        emails = await fetchGmailMessagesWithRetry();
       }
 
       const response = await fetch("/api/triage", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          mode,
+          mode: scanMode,
           emails,
           useOpenAI,
         }),
@@ -305,7 +309,8 @@ export function DashboardClient({
               />
             {(["mock", "gmail"] as const).map((option) => {
               const selected = source === option;
-              const disabled = option === "gmail" && !hasGmailConnection;
+              const disabled =
+                controlsLocked || (option === "gmail" && !hasGmailConnection);
 
               return (
                 <button
@@ -313,6 +318,8 @@ export function DashboardClient({
                   type="button"
                   disabled={disabled}
                   onClick={() => {
+                    if (controlsLocked) return;
+                    sourceRef.current = option;
                     setSource(option);
                     setActiveEmails(option === "mock" ? mockEmails : []);
                     setOpenAIItems(null);
@@ -340,7 +347,10 @@ export function DashboardClient({
 
           <ModeSelector
             value={mode}
+            disabled={controlsLocked}
             onChange={(next) => {
+              if (controlsLocked) return;
+              modeRef.current = next;
               setMode(next);
               setHasRun(false);
               setOpenAIItems(null);
@@ -413,13 +423,13 @@ export function DashboardClient({
             window.localStorage.setItem("inboxpilot-openai-email-consent", "accepted");
             void saveOpenAIPreference(true);
             setShowConsent(false);
-            if (pendingScan) void executeScan(true);
+            if (pendingScan) void executeScan(true, sourceRef.current, modeRef.current);
           }}
           onLocalOnly={() => {
             window.localStorage.setItem("inboxpilot-openai-email-consent", "declined");
             void saveOpenAIPreference(false);
             setShowConsent(false);
-            if (pendingScan) void executeScan(false);
+            if (pendingScan) void executeScan(false, sourceRef.current, modeRef.current);
           }}
           onCancel={() => {
             setShowConsent(false);
@@ -748,4 +758,32 @@ async function readJsonResponse(response: Response) {
         : "The scan service returned an unreadable error. Please try again.",
     };
   }
+}
+
+async function fetchGmailMessagesWithRetry() {
+  const delays = [0, 450, 1200, 2200];
+  let lastError = "Unable to fetch Gmail messages.";
+
+  for (const delay of delays) {
+    if (delay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+
+    const response = await fetch("/api/email-providers/gmail/messages", {
+      cache: "no-store",
+    });
+    const payload = await readJsonResponse(response);
+
+    if (response.ok) {
+      return payload.messages as EmailMessage[];
+    }
+
+    lastError = payload.error ?? lastError;
+
+    if (response.status !== 401 && response.status !== 409 && response.status < 500) {
+      break;
+    }
+  }
+
+  throw new Error(lastError);
 }
