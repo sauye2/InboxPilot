@@ -4,7 +4,8 @@ import { cleanEmailText, decodeHtmlEntities } from "@/lib/email/clean-email-text
 export const GMAIL_READONLY_SCOPE =
   "https://www.googleapis.com/auth/gmail.readonly";
 export const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
-export const GMAIL_SCOPES = [GMAIL_READONLY_SCOPE, GMAIL_SEND_SCOPE].join(" ");
+export const GMAIL_MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
+export const GMAIL_SCOPES = [GMAIL_MODIFY_SCOPE].join(" ");
 
 export function getGmailRedirectUri() {
   return (
@@ -417,6 +418,30 @@ export async function sendGmailThreadReply({
 
   if (!response.ok) {
     throw new Error(`Gmail send failed with ${response.status}.`);
+  }
+
+  return (await response.json()) as { id: string; threadId: string };
+}
+
+export async function trashGmailMessage({
+  accessToken,
+  gmailMessageId,
+}: {
+  accessToken: string;
+  gmailMessageId: string;
+}) {
+  const response = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailMessageId}/trash`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gmail trash failed with ${response.status}.`);
   }
 
   return (await response.json()) as { id: string; threadId: string };

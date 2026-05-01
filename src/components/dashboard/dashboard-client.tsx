@@ -223,6 +223,49 @@ export function DashboardClient({
     void saveReviewAction(id, "task_created");
   }
 
+  async function deleteEmail(id: string) {
+    const item = analyzed.items.find((candidate) => candidate.email.id === id);
+
+    if (!item) return;
+
+    const confirmed = window.confirm(
+      item.email.provider === "gmail"
+        ? "Delete this Gmail message? It will be moved to Gmail Trash."
+        : "Remove this mock email from the current scan?",
+    );
+
+    if (!confirmed) return;
+
+    setScanError(null);
+
+    try {
+      if (item.email.provider === "gmail") {
+        const response = await fetch("/api/email-providers/gmail/trash", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ emailId: id }),
+        });
+        const payload = await readJsonResponse(response);
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Unable to delete Gmail message.");
+        }
+      }
+
+      setOpenAIItems((current) =>
+        current ? current.filter((candidate) => candidate.email.id !== id) : current,
+      );
+      setActiveEmails((current) => current.filter((email) => email.id !== id));
+      setTaskIds((current) => current.filter((emailId) => emailId !== id));
+      setTaskStates((current) => current.filter((task) => task.emailId !== id));
+      setSelectedId((current) => (current === id ? null : current));
+    } catch (error) {
+      setScanError(
+        error instanceof Error ? error.message : "Unable to delete email.",
+      );
+    }
+  }
+
   function updateTaskState(id: string, patch: Partial<TaskState>) {
     setTaskStates((current) =>
       current.map((task) => (task.emailId === id ? { ...task, ...patch } : task)),
@@ -439,7 +482,7 @@ export function DashboardClient({
           </section>
         </div>
 
-        <div className="flex min-h-full">
+        <div className="flex h-[720px] min-h-0">
           {hasRun ? (
             <PriorityQueue
               items={filteredItems}
@@ -449,11 +492,12 @@ export function DashboardClient({
               onPin={pin}
               onBack={() => setSelectedId(null)}
               onAddTask={addTask}
+              onDeleteEmail={deleteEmail}
               mode={mode}
               onFeedback={saveTriageFeedback}
             />
           ) : (
-            <div className="liquid-glass flex min-h-[720px] flex-1 flex-col items-center justify-center rounded-2xl border-dashed border-black/15 bg-white/48 p-10 text-center ring-1 ring-white/40">
+            <div className="liquid-glass flex h-full flex-1 flex-col items-center justify-center rounded-2xl border-dashed border-black/15 bg-white/48 p-10 text-center ring-1 ring-white/40">
               <h2 className="text-lg font-semibold text-[#141817]">
                 Ready when you are
               </h2>

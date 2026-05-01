@@ -202,12 +202,14 @@ export async function auditProviderEvent({
   userId: string;
   connectionId?: string | null;
   provider: EmailMessage["provider"];
-  eventType:
-    | "refresh_success"
-    | "refresh_failed"
-    | "revoked"
-    | "send_success"
-    | "send_failed";
+    eventType:
+      | "refresh_success"
+      | "refresh_failed"
+      | "revoked"
+      | "send_success"
+      | "send_failed"
+      | "trash_success"
+      | "trash_failed";
   message?: string | null;
 }) {
   await admin.from("provider_token_audit_events").insert({

@@ -7,6 +7,7 @@ import {
   Circle,
   ListPlus,
   Pin,
+  Trash2,
 } from "lucide-react";
 import type { PriorityLevel, TriageMode, TriagedEmail } from "@/types/triage";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ type PriorityQueueProps = {
   onPin: (id: string) => void;
   onBack: () => void;
   onAddTask: (id: string) => void;
+  onDeleteEmail: (id: string) => void;
   mode: TriageMode;
   onFeedback: (
     id: string,
@@ -44,6 +46,7 @@ export function PriorityQueue({
   onPin,
   onBack,
   onAddTask,
+  onDeleteEmail,
   mode,
   onFeedback,
 }: PriorityQueueProps) {
@@ -52,7 +55,7 @@ export function PriorityQueue({
 
   if (items.length === 0) {
     return (
-      <div className="liquid-glass flex h-full min-h-[720px] flex-1 flex-col items-center justify-center rounded-2xl border-dashed border-black/15 bg-white/64 p-8 text-center">
+      <div className="liquid-glass flex h-[720px] flex-1 flex-col items-center justify-center rounded-2xl border-dashed border-black/15 bg-white/64 p-8 text-center">
         <CheckCircle2 className="size-10 text-teal-700" />
         <h2 className="mt-4 text-base font-semibold text-[#141817]">
           Nothing matches these filters
@@ -66,7 +69,7 @@ export function PriorityQueue({
   }
 
   return (
-    <div className="liquid-glass flex h-full min-h-[720px] flex-1 flex-col rounded-2xl border-white/70 bg-white/34 p-5 shadow-2xl shadow-black/20 ring-1 ring-white/45">
+    <div className="liquid-glass flex h-[720px] flex-1 flex-col overflow-hidden rounded-2xl border-white/70 bg-white/34 p-5 shadow-2xl shadow-black/20 ring-1 ring-white/45">
       <div className="flex items-start justify-between border-b border-black/10 pb-4">
         <div>
           <h2 className="text-2xl font-semibold tracking-normal text-[#141817]">
@@ -88,12 +91,13 @@ export function PriorityQueue({
             onBack={onBack}
             onToggleReviewed={onToggleReviewed}
             onAddTask={onAddTask}
+            onDeleteEmail={onDeleteEmail}
             onPin={onPin}
             categories={categories}
             onFeedback={onFeedback}
           />
         ) : (
-          <ScrollArea className="mt-4 min-h-0 flex-1 pr-3">
+          <ScrollArea className="mt-4 h-full min-h-0 flex-1 pr-3">
             <div className="grid gap-3">
               {items.map((item) => (
                 <QueueItem
@@ -102,6 +106,7 @@ export function PriorityQueue({
                   onSelect={onSelect}
                   onToggleReviewed={onToggleReviewed}
                   onAddTask={onAddTask}
+                  onDeleteEmail={onDeleteEmail}
                   categories={categories}
                   onFeedback={onFeedback}
                 />
@@ -119,6 +124,7 @@ function QueueItem({
   onSelect,
   onToggleReviewed,
   onAddTask,
+  onDeleteEmail,
   categories,
   onFeedback,
 }: {
@@ -126,6 +132,7 @@ function QueueItem({
   onSelect: (id: string) => void;
   onToggleReviewed: (id: string) => void;
   onAddTask: (id: string) => void;
+  onDeleteEmail: (id: string) => void;
   categories: string[];
   onFeedback: (
     id: string,
@@ -185,39 +192,54 @@ function QueueItem({
         {triage.requiresAction ? <ActionBadge /> : null}
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 border-black/10 bg-white/70"
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleReviewed(email.id);
-          }}
-        >
-          <CheckCircle2 className="size-3.5" />
-          {triage.reviewed ? "Unmark reviewed" : "Mark reviewed"}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 border-black/10 bg-white/70"
-          onClick={(event) => {
-            event.stopPropagation();
-            onAddTask(email.id);
-          }}
-        >
-          <ListPlus className="size-3.5" />
-          Add to task list
-        </Button>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-full border-[#d9e8e4] bg-[#eef8f5] px-3 text-xs font-semibold text-[#0e6f68] hover:bg-[#dff3eb]"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleReviewed(email.id);
+            }}
+          >
+            <CheckCircle2 className="size-3.5" />
+            {triage.reviewed ? "Unmark reviewed" : "Mark reviewed"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-full border-[#d9e8e4] bg-[#eef8f5] px-3 text-xs font-semibold text-[#0e6f68] hover:bg-[#dff3eb]"
+            onClick={(event) => {
+              event.stopPropagation();
+              onAddTask(email.id);
+            }}
+          >
+            <ListPlus className="size-3.5" />
+            Add to task list
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <FeedbackControls
+            emailId={email.id}
+            category={triage.category}
+            priority={triage.priority}
+            categories={categories}
+            onFeedback={onFeedback}
+          />
+          <button
+            type="button"
+            aria-label="Delete email"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-[#e9b9a9] bg-[#fff1e8] text-[#b44927] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#ffe2d6] hover:text-[#8f341d]"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDeleteEmail(email.id);
+            }}
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </div>
       </div>
-      <FeedbackControls
-        emailId={email.id}
-        category={triage.category}
-        priority={triage.priority}
-        categories={categories}
-        onFeedback={onFeedback}
-      />
     </article>
   );
 }
@@ -227,6 +249,7 @@ function EmailFocusView({
   onBack,
   onToggleReviewed,
   onAddTask,
+  onDeleteEmail,
   onPin,
   categories,
   onFeedback,
@@ -235,6 +258,7 @@ function EmailFocusView({
   onBack: () => void;
   onToggleReviewed: (id: string) => void;
   onAddTask: (id: string) => void;
+  onDeleteEmail: (id: string) => void;
   onPin: (id: string) => void;
   categories: string[];
   onFeedback: (
@@ -315,6 +339,14 @@ function EmailFocusView({
           <Button variant="outline" onClick={() => onAddTask(email.id)}>
             <ListPlus className="size-4" />
             Add to task list
+          </Button>
+          <Button
+            variant="outline"
+            className="rounded-full border-[#e9b9a9] bg-[#fff1e8] text-[#b44927] hover:bg-[#ffe2d6] hover:text-[#8f341d]"
+            onClick={() => onDeleteEmail(email.id)}
+          >
+            <Trash2 className="size-4" />
+            Delete
           </Button>
         </div>
       </div>
