@@ -55,7 +55,7 @@ export function PriorityQueue({
 
   if (items.length === 0) {
     return (
-      <div className="liquid-glass flex h-[720px] flex-1 flex-col items-center justify-center rounded-2xl border-dashed border-black/15 bg-white/64 p-8 text-center">
+      <div className="liquid-glass flex h-[880px] flex-1 flex-col items-center justify-center rounded-2xl border-dashed border-black/15 bg-white/64 p-8 text-center">
         <CheckCircle2 className="size-10 text-teal-700" />
         <h2 className="mt-4 text-base font-semibold text-[#141817]">
           Nothing matches these filters
@@ -69,7 +69,7 @@ export function PriorityQueue({
   }
 
   return (
-    <div className="liquid-glass flex h-[720px] flex-1 flex-col overflow-hidden rounded-2xl border-white/70 bg-white/34 p-5 shadow-2xl shadow-black/20 ring-1 ring-white/45">
+    <div className="liquid-glass flex h-[880px] flex-1 flex-col overflow-hidden rounded-2xl border-white/70 bg-white/34 p-5 shadow-2xl shadow-black/20 ring-1 ring-white/45">
       <div className="flex items-start justify-between border-b border-black/10 pb-4">
         <div>
           <h2 className="text-2xl font-semibold tracking-normal text-[#141817]">

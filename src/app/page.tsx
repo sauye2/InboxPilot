@@ -346,6 +346,21 @@ export default function Home() {
           </ScrollReveal>
         </div>
       </section>
+
+      <footer className="border-t border-black/10 px-5 py-8 sm:px-8">
+        <div className="mx-auto flex max-w-[1500px] flex-col gap-3 text-sm text-[#68716d] sm:flex-row sm:items-center sm:justify-between">
+          <p>InboxPilot local-first email triage.</p>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="transition hover:text-[#141817]">
+              Privacy Policy
+            </Link>
+            <span aria-hidden="true" className="h-4 w-px bg-black/12" />
+            <Link href="/terms" className="transition hover:text-[#141817]">
+              Terms of Service
+            </Link>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
