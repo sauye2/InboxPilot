@@ -7,6 +7,23 @@ export const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 export const GMAIL_MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
 export const GMAIL_SCOPES = [GMAIL_MODIFY_SCOPE].join(" ");
 
+export class GmailApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+    this.name = "GmailApiError";
+  }
+}
+
+export function isGmailAuthError(error: unknown) {
+  return (
+    error instanceof GmailApiError &&
+    (error.status === 400 || error.status === 401 || error.status === 403)
+  );
+}
+
 export function getGmailRedirectUri() {
   return (
     process.env.GOOGLE_GMAIL_REDIRECT_URI ??
@@ -94,7 +111,10 @@ export async function exchangeGmailCode(code: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`Google token exchange failed with ${response.status}.`);
+    throw new GmailApiError(
+      `Google token exchange failed with ${response.status}.`,
+      response.status,
+    );
   }
 
   return (await response.json()) as {
@@ -125,7 +145,7 @@ export async function refreshGmailAccessToken(refreshToken: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`Google refresh failed with ${response.status}.`);
+    throw new GmailApiError(`Google refresh failed with ${response.status}.`, response.status);
   }
 
   return (await response.json()) as {
@@ -146,7 +166,7 @@ export async function revokeGmailToken(token: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`Google token revoke failed with ${response.status}.`);
+    throw new GmailApiError(`Google token revoke failed with ${response.status}.`, response.status);
   }
 }
 
@@ -158,7 +178,10 @@ export async function fetchGmailProfile(accessToken: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`Gmail profile request failed with ${response.status}.`);
+    throw new GmailApiError(
+      `Gmail profile request failed with ${response.status}.`,
+      response.status,
+    );
   }
 
   return (await response.json()) as {
@@ -309,7 +332,10 @@ export async function fetchRecentGmailMessages(accessToken: string, maxResults =
   });
 
   if (!listResponse.ok) {
-    throw new Error(`Gmail message list failed with ${listResponse.status}.`);
+    throw new GmailApiError(
+      `Gmail message list failed with ${listResponse.status}.`,
+      listResponse.status,
+    );
   }
 
   const list = (await listResponse.json()) as {
@@ -330,7 +356,10 @@ export async function fetchRecentGmailMessages(accessToken: string, maxResults =
       });
 
       if (!response.ok) {
-        throw new Error(`Gmail message fetch failed with ${response.status}.`);
+        throw new GmailApiError(
+          `Gmail message fetch failed with ${response.status}.`,
+          response.status,
+        );
       }
 
       return (await response.json()) as GmailMessage;
@@ -382,7 +411,10 @@ export async function fetchGmailReplyTarget(
   });
 
   if (!response.ok) {
-    throw new Error(`Gmail reply target fetch failed with ${response.status}.`);
+    throw new GmailApiError(
+      `Gmail reply target fetch failed with ${response.status}.`,
+      response.status,
+    );
   }
 
   const message = (await response.json()) as GmailMessage;
@@ -436,7 +468,7 @@ export async function sendGmailThreadReply({
   });
 
   if (!response.ok) {
-    throw new Error(`Gmail send failed with ${response.status}.`);
+    throw new GmailApiError(`Gmail send failed with ${response.status}.`, response.status);
   }
 
   return (await response.json()) as { id: string; threadId: string };
@@ -460,7 +492,7 @@ export async function trashGmailMessage({
   );
 
   if (!response.ok) {
-    throw new Error(`Gmail trash failed with ${response.status}.`);
+    throw new GmailApiError(`Gmail trash failed with ${response.status}.`, response.status);
   }
 
   return (await response.json()) as { id: string; threadId: string };

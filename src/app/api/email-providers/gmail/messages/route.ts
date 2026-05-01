@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   fetchRecentGmailMessages,
+  isGmailAuthError,
   refreshGmailAccessToken,
 } from "@/lib/email-providers/gmail-oauth";
 import { decryptSecret } from "@/lib/security/encryption";
@@ -53,33 +54,46 @@ export async function GET() {
       message: "Gmail access token refreshed for message fetch.",
     });
     const messages = await fetchRecentGmailMessages(refreshed.access_token);
+    await admin
+      .from("email_connections")
+      .update({
+        status: "connected",
+        last_sync_at: new Date().toISOString(),
+      })
+      .eq("id", token.connection_id);
 
     return NextResponse.json({ messages });
   } catch (fetchError) {
-    await admin
-      .from("email_connections")
-      .update({ status: "expired" })
-      .eq("id", token.connection_id);
+    const shouldExpireConnection = isGmailAuthError(fetchError);
+
+    if (shouldExpireConnection) {
+      await admin
+        .from("email_connections")
+        .update({ status: "expired" })
+        .eq("id", token.connection_id);
+    }
+
     await auditProviderEvent({
       admin,
       userId: user.id,
       connectionId: token.connection_id,
       provider: "gmail",
-      eventType: "refresh_failed",
+      eventType: shouldExpireConnection ? "refresh_failed" : "fetch_failed",
       message:
         fetchError instanceof Error
           ? fetchError.message
-          : "Unable to refresh Gmail access token.",
+          : "Unable to fetch Gmail messages.",
     });
 
     return NextResponse.json(
       {
-        error:
-          fetchError instanceof Error
+        error: shouldExpireConnection
+          ? "Reconnect Gmail so InboxPilot can refresh the required permissions."
+          : fetchError instanceof Error
             ? fetchError.message
             : "Unable to fetch Gmail messages.",
       },
-      { status: 500 },
+      { status: shouldExpireConnection ? 409 : 500 },
     );
   }
 }
