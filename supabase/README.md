@@ -50,8 +50,8 @@ The existing anon key and service-role key are enough for app runtime calls, but
 
 When Supabase Auth UI is added, configure these URLs in Supabase Auth settings:
 
-- Site URL: `https://inboxpilot-sa.vercel.app`
+- Site URL: `https://inboxpilot-sa.us`
 - Redirect URLs:
-  - `https://inboxpilot-sa.vercel.app/auth/callback`
+  - `https://inboxpilot-sa.us/auth/callback`
   - `http://localhost:3000/auth/callback`
   - `http://localhost:3001/auth/callback`

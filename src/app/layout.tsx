@@ -14,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://inboxpilot-sa.us"),
   title: "InboxPilot - AI-ready email triage",
   description:
     "A local-first MVP for mode-aware inbox triage, prioritization, and review workflows.",

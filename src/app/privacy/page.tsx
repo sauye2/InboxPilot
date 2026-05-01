@@ -14,24 +14,48 @@ const sections = [
     body: "InboxPilot helps users triage email by scanning connected messages, categorizing them, ranking priority, creating task items, and optionally generating reply suggestions.",
   },
   {
-    title: "Email access",
-    body: "InboxPilot only accesses mailbox data after a user explicitly signs in and connects an email account. Gmail access is used to read recent messages for triage, send user-approved replies, and move messages to trash when the user confirms a delete action.",
+    title: "Information we collect",
+    body: "When you use InboxPilot, we may collect account profile information, your email address, connected provider metadata, encrypted provider tokens, scan settings, triage results, review actions, task items, feedback, and draft reply text that you choose to save or send.",
+  },
+  {
+    title: "Gmail data access",
+    body: "InboxPilot only accesses Gmail data after you explicitly sign in and connect Gmail. Gmail access is used to read recent messages for triage, send replies only after you approve them, and move messages to trash only after you confirm the delete action.",
+  },
+  {
+    title: "How we use Gmail data",
+    body: "Gmail message data is used to provide user-facing email triage, priority ranking, category labels, task workflows, reply drafting, sending approved replies, and confirmed deletion actions. InboxPilot does not use Gmail data for advertising or unrelated product analytics.",
   },
   {
     title: "AI processing",
-    body: "If a user opts in, InboxPilot may send selected message metadata, snippets, and available body text to OpenAI to improve classification, next-step summaries, and reply suggestions. If a user opts out, InboxPilot uses local rules instead.",
+    body: "If you opt in, InboxPilot may send selected message metadata, snippets, and available body text to OpenAI to improve classification, next-step summaries, and reply suggestions. If you opt out, InboxPilot scans with local rules only. You can change this preference in Settings.",
   },
   {
-    title: "Data storage",
-    body: "InboxPilot may store account profile information, encrypted provider connection tokens, triage results, user feedback, review actions, task items, and editable draft replies. Production versions should minimize full email body retention and keep tokens encrypted and revocable.",
+    title: "Storage and retention",
+    body: "InboxPilot may store encrypted provider connection tokens, triage results, task records, review state, feedback, and editable draft replies so your workflow can persist across sessions. We aim to minimize email body retention and keep sensitive provider credentials encrypted server-side.",
   },
   {
-    title: "What InboxPilot does not do",
-    body: "InboxPilot does not sell email data, does not send emails without explicit user approval, and does not access inboxes unless the user connects an account.",
+    title: "Sharing and sale of data",
+    body: "InboxPilot does not sell your personal information or email data. We do not share Gmail data with advertisers. Data may be processed by infrastructure providers, Supabase, OpenAI if you opt in to AI processing, and Google APIs only as needed to operate the product.",
   },
   {
-    title: "Disconnecting and deletion",
-    body: "Users can disconnect Gmail from the Connections page. Disconnecting revokes the stored provider connection and prevents future scans until the user reconnects.",
+    title: "Google API Limited Use",
+    body: "InboxPilot's use and transfer of information received from Google APIs will adhere to the Google API Services User Data Policy, including the Limited Use requirements.",
+  },
+  {
+    title: "Security",
+    body: "Provider tokens are intended to be encrypted at rest and used only from server-side routes. Production versions should maintain secure token storage, least-privilege access, audit logs for provider actions, and controls that let users revoke connected accounts.",
+  },
+  {
+    title: "Your controls",
+    body: "You can disconnect Gmail from the Connections page, opt in or out of OpenAI-assisted processing from Settings, review or remove tasks, and choose whether to send or delete messages. InboxPilot does not send replies or delete emails without your confirmation.",
+  },
+  {
+    title: "Children's privacy",
+    body: "InboxPilot is not intended for children under 13. We do not knowingly collect personal information from children under 13.",
+  },
+  {
+    title: "Changes to this policy",
+    body: "We may update this policy as InboxPilot changes. When material changes are made, the effective date on this page will be updated.",
   },
 ];
 
@@ -72,8 +96,9 @@ export default function PrivacyPage() {
 
         <section className="mt-6 rounded-2xl border border-black/10 bg-[#fffdf7]/72 p-6 text-sm leading-7 text-[#4a504d]">
           <p>
-            Questions about this policy should be directed to the support email
-            listed on the Google OAuth consent screen for InboxPilot.
+            Questions, access requests, or deletion requests should be directed
+            to the support email listed on the Google OAuth consent screen for
+            InboxPilot.
           </p>
           <Link href="/terms" className="mt-3 inline-flex font-semibold text-[#0e6f68]">
             View Terms of Service

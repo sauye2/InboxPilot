@@ -138,16 +138,17 @@ Future implementations:
 
 ## Gmail OAuth Setup
 
-The first Gmail path uses the read-only scope:
+The Gmail path currently uses the modify scope so InboxPilot can read recent
+messages, send user-approved replies, and move user-confirmed messages to trash:
 
 ```txt
-https://www.googleapis.com/auth/gmail.readonly
+https://www.googleapis.com/auth/gmail.modify
 ```
 
 Google Cloud OAuth client redirect URI:
 
 ```txt
-https://inboxpilot-sa.vercel.app/api/email-providers/gmail/callback
+https://inboxpilot-sa.us/api/email-providers/gmail/callback
 ```
 
 Environment variables:
@@ -155,7 +156,7 @@ Environment variables:
 ```bash
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GOOGLE_GMAIL_REDIRECT_URI=https://inboxpilot-sa.vercel.app/api/email-providers/gmail/callback
+GOOGLE_GMAIL_REDIRECT_URI=https://inboxpilot-sa.us/api/email-providers/gmail/callback
 ```
 
 This first pass stores connection metadata in Supabase and stores Gmail refresh tokens encrypted with `TOKEN_ENCRYPTION_KEY` on the server.

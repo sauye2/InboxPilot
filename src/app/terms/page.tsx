@@ -18,12 +18,24 @@ const terms = [
     body: "AI-generated classifications, summaries, and reply drafts are suggestions only. Review all outputs before relying on them or sending any reply.",
   },
   {
-    title: "Gmail actions",
-    body: "InboxPilot may read recent Gmail messages, send replies, and move messages to trash only after the user grants access and confirms the action in the app.",
+    title: "Connected email accounts",
+    body: "By connecting Gmail or another provider, you authorize InboxPilot to access the provider data needed to provide triage, task, reply, and user-approved email actions. You can disconnect a provider from the Connections page.",
+  },
+  {
+    title: "User-approved Gmail actions",
+    body: "InboxPilot may read recent Gmail messages, send replies, and move messages to trash only after you grant access. Sending and deletion actions require explicit approval in the app before they are performed.",
   },
   {
     title: "User content",
     body: "You retain responsibility for email content, task notes, draft replies, and feedback you save in InboxPilot. Do not use the service for unlawful, harmful, or abusive activity.",
+  },
+  {
+    title: "Account security",
+    body: "You are responsible for keeping your account credentials secure and for promptly disconnecting provider access if you believe your account has been compromised.",
+  },
+  {
+    title: "Privacy",
+    body: "Your use of InboxPilot is also governed by the Privacy Policy, which explains how InboxPilot handles Gmail data, AI processing, stored workflow data, and user controls.",
   },
   {
     title: "Beta software",
@@ -32,6 +44,14 @@ const terms = [
   {
     title: "No warranty",
     body: "InboxPilot is provided as is, without warranties of any kind. The app does not guarantee that every important email will be detected or prioritized correctly.",
+  },
+  {
+    title: "Limitation of liability",
+    body: "To the fullest extent allowed by law, InboxPilot is not responsible for indirect, incidental, special, consequential, or punitive damages arising from use of the service.",
+  },
+  {
+    title: "Changes to these terms",
+    body: "InboxPilot may update these terms as the product changes. Continued use after an update means you accept the revised terms.",
   },
 ];
 
