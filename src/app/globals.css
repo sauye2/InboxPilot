@@ -135,6 +135,45 @@
 }
 
 @layer utilities {
+  .app-ambient-bg {
+    background:
+      linear-gradient(115deg, transparent 0 44%, rgba(14, 111, 104, 0.07) 44% 45%, transparent 45% 100%),
+      linear-gradient(292deg, transparent 0 54%, rgba(168, 93, 53, 0.08) 54% 55%, transparent 55% 100%),
+      linear-gradient(180deg, rgba(255, 253, 247, 0.95), rgba(241, 239, 232, 0.78) 52%, rgba(247, 246, 241, 0.98)),
+      linear-gradient(rgba(20, 24, 23, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(20, 24, 23, 0.03) 1px, transparent 1px);
+    background-size:
+      auto,
+      auto,
+      auto,
+      72px 72px,
+      72px 72px;
+  }
+
+  .app-ambient-bg::before,
+  .app-ambient-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .app-ambient-bg::before {
+    background:
+      radial-gradient(ellipse at 18% 16%, rgba(139, 211, 199, 0.2), transparent 42%),
+      radial-gradient(ellipse at 92% 8%, rgba(200, 106, 59, 0.13), transparent 36%),
+      radial-gradient(ellipse at 58% 92%, rgba(14, 111, 104, 0.1), transparent 44%);
+    filter: blur(6px);
+    opacity: 0.86;
+  }
+
+  .app-ambient-bg::after {
+    background-image:
+      repeating-linear-gradient(112deg, transparent 0 118px, rgba(255, 255, 255, 0.2) 118px 119px, transparent 119px 238px);
+    opacity: 0.34;
+    mix-blend-mode: screen;
+  }
+
   .liquid-glass {
     position: relative;
     overflow: hidden;
