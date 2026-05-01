@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, Loader2, Play, ShieldCheck, X } from "lucide-react";
+import { CheckCircle2, Loader2, Pencil, Play, ShieldCheck, Trash2, X } from "lucide-react";
 import type { EmailMessage } from "@/types/email";
 import type { TriageMode, TriageResult, TriagedEmail } from "@/types/triage";
 import { Button } from "@/components/ui/button";
@@ -502,7 +502,17 @@ function TaskList({
   const [draftingId, setDraftingId] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isClosingTask, setIsClosingTask] = useState(false);
+  const [isEditingTasks, setIsEditingTasks] = useState(false);
   const selectedTask = tasks.find((task) => task.email.id === selectedTaskId) ?? null;
+
+  function closeSelectedTask() {
+    setIsClosingTask(true);
+    window.setTimeout(() => {
+      setSelectedTaskId(null);
+      setIsClosingTask(false);
+    }, 180);
+  }
 
   async function generateReply(emailId: string) {
     setDraftingId(emailId);
@@ -535,7 +545,7 @@ function TaskList({
 
   return (
     <section className="liquid-glass rounded-2xl border-black/10 bg-white/64 p-5 shadow-xl shadow-black/8">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold tracking-normal text-[#141817]">
             Task list
@@ -544,9 +554,25 @@ function TaskList({
             Saved email follow-ups with editable AI draft space.
           </p>
         </div>
-        <span className="rounded-full border border-black/10 bg-[#fffdf7]/70 px-3 py-1 text-sm font-medium text-[#68716d]">
-          {tasks.length} tasks
-        </span>
+        <div className="flex items-center gap-2">
+          {tasks.length > 0 ? (
+            <button
+              type="button"
+              className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition ${
+                isEditingTasks
+                  ? "border-[#c86a3b]/25 bg-[#fff1e8] text-[#9a4d2c]"
+                  : "border-black/10 bg-[#fffdf7]/70 text-[#4a504d] hover:bg-white"
+              }`}
+              onClick={() => setIsEditingTasks((current) => !current)}
+            >
+              <Pencil className="size-3.5" />
+              {isEditingTasks ? "Done" : "Edit list"}
+            </button>
+          ) : null}
+          <span className="rounded-full border border-black/10 bg-[#fffdf7]/70 px-3 py-1 text-sm font-medium text-[#68716d]">
+            {tasks.length} tasks
+          </span>
+        </div>
       </div>
 
       {tasks.length === 0 ? (
@@ -557,7 +583,13 @@ function TaskList({
           </p>
         </div>
       ) : selectedTask ? (
-        <div className="animate-in fade-in slide-in-from-bottom-3 mt-5 rounded-xl border border-black/10 bg-[#fffdf7]/78 p-4 duration-300">
+        <div
+          className={`mt-5 rounded-xl border border-black/10 bg-[#fffdf7]/78 p-4 duration-300 ${
+            isClosingTask
+              ? "animate-out fade-out slide-out-to-bottom-3 zoom-out-95"
+              : "animate-in fade-in slide-in-from-bottom-3 zoom-in-95"
+          }`}
+        >
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase text-[#68716d]">
@@ -574,7 +606,7 @@ function TaskList({
               type="button"
               aria-label="Close selected task"
               className="flex size-9 items-center justify-center rounded-full border border-black/10 bg-white/70 text-[#4a504d] transition hover:bg-white hover:text-[#141817]"
-              onClick={() => setSelectedTaskId(null)}
+              onClick={closeSelectedTask}
             >
               <X className="size-4" />
             </button>
@@ -627,7 +659,7 @@ function TaskList({
               className="rounded-full border border-[#c86a3b]/20 bg-[#fff1e8] px-3 py-1.5 text-sm font-medium text-[#9a4d2c]"
               onClick={() => {
                 onRemove(selectedTask.email.id);
-                setSelectedTaskId(null);
+                closeSelectedTask();
               }}
             >
               Remove from tasks
@@ -635,33 +667,50 @@ function TaskList({
           </div>
         </div>
       ) : (
-        <div className="mt-5 grid gap-2">
+        <div className="mt-5 grid max-w-3xl gap-2">
           {draftError ? (
             <div className="rounded-xl border border-[#c86a3b]/20 bg-[#fff1e8] px-4 py-3 text-sm text-[#8b4d2c]">
               {draftError}
             </div>
           ) : null}
           {tasks.map((item) => (
-            <button
+            <div
               key={item.email.id}
-              type="button"
-              onClick={() => setSelectedTaskId(item.email.id)}
-              className={`flex items-center justify-between gap-4 rounded-xl border border-black/10 bg-[#fffdf7]/78 p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-md ${
+              className={`group flex items-center gap-2 rounded-xl border border-black/10 bg-[#fffdf7]/78 p-2 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-white hover:shadow-md ${
                 item.triage.reviewed ? "opacity-60" : ""
               }`}
             >
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-[#141817]">
-                  {item.email.senderName}
-                </p>
-                <p className="mt-1 truncate text-sm text-[#4a504d]">
-                  {item.triage.suggestedNextAction}
-                </p>
-              </div>
-              {item.triage.reviewed ? (
-                <CheckCircle2 className="size-5 shrink-0 text-[#0e6f68]" />
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditingTasks(false);
+                  setSelectedTaskId(item.email.id);
+                }}
+                className="flex min-w-0 flex-1 items-center justify-between gap-4 rounded-lg px-3 py-2 text-left transition group-hover:bg-[#f1f0ea]/70"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-[#141817]">
+                    {item.email.senderName}
+                  </p>
+                  <p className="mt-1 truncate text-sm text-[#4a504d]">
+                    {item.triage.suggestedNextAction}
+                  </p>
+                </div>
+                {item.triage.reviewed ? (
+                  <CheckCircle2 className="size-5 shrink-0 text-[#0e6f68]" />
+                ) : null}
+              </button>
+              {isEditingTasks ? (
+                <button
+                  type="button"
+                  aria-label={`Remove ${item.email.senderName} from task list`}
+                  className="animate-in fade-in zoom-in-95 flex size-9 shrink-0 items-center justify-center rounded-full border border-[#c86a3b]/20 bg-[#fff1e8] text-[#9a4d2c] transition hover:bg-[#ffe5d4]"
+                  onClick={() => onRemove(item.email.id)}
+                >
+                  <Trash2 className="size-4" />
+                </button>
               ) : null}
-            </button>
+            </div>
           ))}
         </div>
       )}

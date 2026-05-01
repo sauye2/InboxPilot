@@ -219,6 +219,29 @@ describe("analyzeEmail", () => {
     expect(supabaseInRecruiting.category).toBe("Inbox Noise");
   });
 
+  it("categorizes passive recruiting job alerts as recruiters without fake deadlines", () => {
+    const result = analyzeEmail(
+      {
+        id: "gmail:test-jobright-recruiting",
+        provider: "gmail",
+        senderName: "Jobright Job Alert",
+        senderEmail: "alerts@jobright.ai",
+        subject: 'Your Top Job matches for "LATAM - Backend Developer" - 04/30/2026',
+        body: "Playsaurus is hiring for LATAM - Backend Developer. Archive or unsubscribe if unwanted.",
+        snippet: "Playsaurus is hiring for LATAM - Backend Developer.",
+        receivedAt: new Date().toISOString(),
+        isRead: true,
+        labels: [],
+        threadId: "thread-jobright-recruiting",
+      },
+      "job_search",
+    );
+
+    expect(result.category).toBe("Recruiters");
+    expect(result.deadline).toBeNull();
+    expect(result.requiresAction).toBe(false);
+  });
+
   it("keeps personal codes and finance out of working mode but allows project tooling", () => {
     const oneTimeCode = analyzeEmail(
       {

@@ -22,12 +22,12 @@ export function analyzeEmail(
   const detectedCategory = detectCategory(text, mode);
   const category = refineCategoryForMode(text, mode, detectedCategory);
   const relevantToMode = category !== "Inbox Noise";
+  const passiveJobAlert = mode === "job_search" && isPassiveJobAlert(text);
 
   let score = 1;
   score += actionHits.length > 0 ? 2 : 0;
   score += urgentHits.length > 0 ? 2 : 0;
-  score += deadline ? 2 : 0;
-  score += deadline && actionHits.length > 0 ? 1 : 0;
+  score += passiveJobAlert ? -2 : 0;
   score += email.isRead ? 0 : 1;
   score += modeSpecificBoost(text, mode, category);
 
@@ -40,8 +40,13 @@ export function analyzeEmail(
   }
 
   const requiresAction =
-    relevantToMode && actionHits.length > 0 && !text.includes("no action is required");
-  const effectiveDeadline = relevantToMode ? deadline : null;
+    relevantToMode &&
+    !passiveJobAlert &&
+    actionHits.length > 0 &&
+    !text.includes("no action is required");
+  const effectiveDeadline = normalizeDeadlineForTriage(text, mode, category, deadline);
+  score += effectiveDeadline ? 2 : 0;
+  score += effectiveDeadline && actionHits.length > 0 ? 1 : 0;
   const priority = enforceDeadlinePriority(scoreToPriority(score), effectiveDeadline, requiresAction);
   const confidence = Math.min(0.96, 0.58 + actionHits.length * 0.06 + urgentHits.length * 0.05 + (effectiveDeadline ? 0.12 : 0));
 
@@ -66,15 +71,17 @@ export function isRelevantToMode(text: string, mode: TriageMode, category: strin
 }
 
 export function refineCategoryForMode(text: string, mode: TriageMode, category: string) {
-  if (category === "Inbox Noise") return "Inbox Noise";
-
   const normalized = text.toLowerCase();
 
   if (mode === "job_search") {
     if (isAuthCodeNoise(normalized) || isNonJobTooling(normalized)) return "Inbox Noise";
+    if (isPassiveJobAlert(normalized)) return "Recruiters";
+    if (category === "Inbox Noise") return "Inbox Noise";
     if (isJobSearchText(normalized)) return category;
     return "Inbox Noise";
   }
+
+  if (category === "Inbox Noise") return "Inbox Noise";
 
   if (mode === "work") {
     if (
@@ -122,6 +129,25 @@ function isJobSearchText(text: string) {
       /\b(software engineer|product engineer|internship|intern)\b/,
       /\b(hiring|job alert|jobs you might like|match from|remote role)\b/,
     ].some((pattern) => pattern.test(text));
+}
+
+export function normalizeDeadlineForTriage(
+  text: string,
+  mode: TriageMode,
+  category: string,
+  deadline: string | null,
+) {
+  if (category === "Inbox Noise") return null;
+  if (mode === "job_search" && isPassiveJobAlert(text)) return null;
+  return deadline;
+}
+
+export function isPassiveJobAlert(text: string) {
+  return [
+    /\b(job alert|job alerts|jobs you might like|hiring for|is hiring|match from|posted a .* match|new job listing)\b/,
+    /\b(latest|remote|backend|frontend|software|application developer|engineer|developer).*\bjobright\b/,
+    /\blinkedin\b.*\b(is hiring|remote role|job alerts?)\b/,
+  ].some((pattern) => pattern.test(text));
 }
 
 function isWorkText(text: string) {
