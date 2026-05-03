@@ -38,7 +38,7 @@ const emailSchema = z.object({
 
 const triageRequestSchema = z.object({
   mode: z.enum(["job_search", "work", "life_admin"]),
-  emails: z.array(emailSchema).min(1).max(50),
+  emails: z.array(emailSchema).max(50),
   useOpenAI: z.boolean().default(true),
 });
 
