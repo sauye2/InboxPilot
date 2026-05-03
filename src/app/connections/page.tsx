@@ -14,6 +14,7 @@ import { auditProviderEvent } from "@/lib/supabase/triage-persistence";
 
 const providers = [
   {
+    id: "gmail",
     name: "Gmail",
     detail: "Gmail OAuth is available for signed-in users. InboxPilot can scan recent messages and send explicitly approved replies.",
     status: "Gmail beta",
@@ -21,12 +22,15 @@ const providers = [
     disabled: false,
   },
   {
+    id: "outlook",
     name: "Outlook / Microsoft 365",
-    detail: "Planned Microsoft Graph adapter. Not enabled in this local MVP.",
-    status: "Coming soon",
-    disabled: true,
+    detail: "Microsoft Graph OAuth is available for signed-in users. InboxPilot can scan recent Outlook inbox messages and send explicitly approved replies.",
+    status: "Outlook beta",
+    href: "/api/email-providers/outlook/start",
+    disabled: false,
   },
   {
+    id: "yahoo",
     name: "Yahoo Mail",
     detail: "Planned provider-specific or IMAP adapter after security review.",
     status: "Coming soon",
@@ -124,6 +128,43 @@ async function disconnectGmailAction() {
   revalidatePath("/connections");
 }
 
+async function disconnectOutlookAction() {
+  "use server";
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login?next=/connections");
+
+  const admin = createSupabaseAdminClient();
+  const { data: connection } = await admin
+    .from("email_connections")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("provider", "outlook")
+    .maybeSingle();
+
+  if (connection?.id) {
+    await auditProviderEvent({
+      admin,
+      userId: user.id,
+      connectionId: connection.id,
+      provider: "outlook",
+      eventType: "revoked",
+      message: "Outlook disconnected locally; encrypted refresh token removed.",
+    });
+    await admin
+      .from("email_connection_tokens")
+      .delete()
+      .eq("connection_id", connection.id);
+    await admin.from("email_connections").delete().eq("id", connection.id);
+  }
+
+  revalidatePath("/connections");
+}
+
 type ConnectionsPageProps = {
   searchParams: Promise<{
     message?: string;
@@ -161,8 +202,8 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/64">
               InboxPilot supports Gmail OAuth for signed-in users. It scans
-              recent messages and only sends a reply after you approve the
-              editable draft.
+              recent Gmail and Outlook messages and only sends a reply after
+              you approve the editable draft.
             </p>
             {message ? (
               <div className="mt-6 rounded-lg border border-[#8bd3c7]/20 bg-[#8bd3c7]/12 px-4 py-3 text-sm text-[#8bd3c7]">
@@ -216,7 +257,7 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
         <section className="mt-8 grid gap-4 md:grid-cols-3">
           {providers.map((provider) => {
             const connection = connectionByProvider.get(
-              provider.name === "Gmail" ? "gmail" : "",
+              provider.id,
             );
             const isConnected = connection?.status === "connected";
 
@@ -256,7 +297,14 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
                           {connection.provider_account_email}
                         </span>
                       </p>
-                      <form action={disconnectGmailAction} className="shrink-0">
+                      <form
+                        action={
+                          provider.id === "outlook"
+                            ? disconnectOutlookAction
+                            : disconnectGmailAction
+                        }
+                        className="shrink-0"
+                      >
                         <button
                           type="submit"
                           className="h-7 rounded-md border border-[#c86a3b]/20 bg-[#fff1e8] px-2.5 text-[11px] font-semibold text-[#9a4d2c] transition hover:bg-[#ffe6d7] hover:text-[#7d351d]"
@@ -281,7 +329,7 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
                           "h-11 w-full bg-[#141817] text-[#f7f6f1] hover:bg-[#27302d]",
                       })}
                     >
-                      Connect Gmail
+                      {provider.id === "outlook" ? "Connect Outlook" : "Connect Gmail"}
                     </Link>
                   )}
                 </div>

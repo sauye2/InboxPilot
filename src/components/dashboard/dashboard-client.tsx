@@ -706,10 +706,14 @@ function TaskList({
     }
   }
 
-  async function sendGmailReply(emailId: string) {
+  async function sendProviderReply(emailId: string, provider: "gmail" | "outlook") {
     const body = normalizeDraftBody(getDraftBody(emailId));
     if (!body) return;
-    if (!window.confirm("Send this edited draft as a Gmail reply in the original thread?")) {
+    if (
+      !window.confirm(
+        `Send this edited draft as a ${provider === "gmail" ? "Gmail" : "Outlook"} reply in the original thread?`,
+      )
+    ) {
       return;
     }
 
@@ -717,7 +721,7 @@ function TaskList({
     setSendError(null);
 
     try {
-      const response = await fetch("/api/email-providers/gmail/send-reply", {
+      const response = await fetch(`/api/email-providers/${provider}/send-reply`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ emailId, body }),
@@ -725,7 +729,7 @@ function TaskList({
       const payload = await readJsonResponse(response);
 
       if (!response.ok) {
-        throw new Error(payload.error ?? "Unable to send Gmail reply.");
+        throw new Error(payload.error ?? "Unable to send reply.");
       }
 
       onUpdateTask(emailId, { status: "waiting", draftBody: body });
@@ -736,7 +740,7 @@ function TaskList({
       }, 900);
     } catch (error) {
       setSendError(
-        error instanceof Error ? error.message : "Unable to send Gmail reply.",
+        error instanceof Error ? error.message : "Unable to send reply.",
       );
     } finally {
       setSendingId(null);
@@ -903,14 +907,20 @@ function TaskList({
               <Copy className="size-3.5" />
               Copy draft
             </button>
-            {selectedTask.email.provider === "gmail" ? (
+            {selectedTask.email.provider === "gmail" ||
+            selectedTask.email.provider === "outlook" ? (
               <button
                 className="inline-flex items-center gap-1.5 rounded-full border border-[#0e6f68]/20 bg-[#dff4ef] px-3 py-1.5 text-sm font-semibold text-[#0e6f68] transition hover:bg-[#cff0e9] disabled:opacity-45"
                 disabled={!getDraftBody(selectedTask.email.id) || sendingId === selectedTask.email.id}
-                onClick={() => sendGmailReply(selectedTask.email.id)}
+                onClick={() =>
+                  sendProviderReply(
+                    selectedTask.email.id,
+                    selectedTask.email.provider as "gmail" | "outlook",
+                  )
+                }
               >
                 <Send className="size-3.5" />
-                {sendingId === selectedTask.email.id ? "Sending..." : "Send Gmail reply"}
+                {sendingId === selectedTask.email.id ? "Sending..." : "Send reply"}
               </button>
             ) : null}
             <button
@@ -1099,16 +1109,17 @@ async function readJsonResponse(response: Response) {
   }
 }
 
-async function fetchGmailMessagesWithRetry() {
+async function fetchProviderMessagesWithRetry(source: "gmail" | "outlook") {
   const delays = [0, 450, 1200, 2200];
-  let lastError = "Unable to fetch Gmail messages.";
+  const label = source === "gmail" ? "Gmail" : "Outlook";
+  let lastError = `Unable to fetch ${label} messages.`;
 
   for (const delay of delays) {
     if (delay > 0) {
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
 
-    const response = await fetch("/api/email-providers/gmail/messages", {
+    const response = await fetch(`/api/email-providers/${source}/messages`, {
       cache: "no-store",
     });
     const payload = await readJsonResponse(response);

@@ -20,6 +20,13 @@ export default async function DashboardPage() {
     .eq("provider", "gmail")
     .eq("status", "connected")
     .maybeSingle();
+  const { data: outlookConnection } = await supabase
+    .from("email_connections")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("provider", "outlook")
+    .eq("status", "connected")
+    .maybeSingle();
   const { data: preferences } = await supabase
     .from("user_preferences")
     .select("ai_processing_enabled, openai_triage_enabled")
@@ -30,6 +37,7 @@ export default async function DashboardPage() {
     <AppShell>
       <DashboardClient
         hasGmailConnection={Boolean(gmailConnection)}
+        hasOutlookConnection={Boolean(outlookConnection)}
         initialAIProcessingEnabled={Boolean(preferences?.ai_processing_enabled)}
         initialOpenAITriageEnabled={Boolean(preferences?.openai_triage_enabled)}
       />
