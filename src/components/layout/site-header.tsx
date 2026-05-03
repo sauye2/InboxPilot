@@ -43,7 +43,7 @@ export async function SiteHeader() {
               InboxPilot
             </span>
             <span className="block text-xs text-[#68716d]">
-              Local triage preview
+              Email triage
             </span>
           </span>
         </Link>
@@ -127,7 +127,7 @@ export async function SiteHeader() {
           <div className="flex items-center gap-2 justify-self-end">
             <div className="hidden items-center gap-2 rounded-full border border-[#0e6f68]/20 bg-[#e7f1ec] px-3 py-1.5 text-xs font-medium text-[#155f59] lg:flex">
               <ShieldCheck className="size-3.5" />
-              Mock data only
+              Privacy first
             </div>
             <Link
               href="/login"

@@ -201,9 +201,9 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
               Connect only what you choose.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/64">
-              InboxPilot supports Gmail OAuth for signed-in users. It scans
-              recent Gmail and Outlook messages and only sends a reply after
-              you approve the editable draft.
+              InboxPilot supports secure Gmail and Outlook access for signed-in
+              users. It scans recent messages and only sends a reply after you
+              approve the editable draft.
             </p>
             {message ? (
               <div className="mt-6 rounded-lg border border-[#8bd3c7]/20 bg-[#8bd3c7]/12 px-4 py-3 text-sm text-[#8bd3c7]">
@@ -218,7 +218,7 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
                   className: "h-12 bg-[#f7f6f1] text-[#111614] hover:bg-white",
                 })}
               >
-                Continue with mock inbox
+                Open dashboard
                 <ArrowRight className="size-4" />
               </Link>
               <Link
@@ -242,7 +242,7 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
               </span>
               <div>
                 <p className="font-semibold">Data handling promise</p>
-                <p className="text-sm text-white/52">Current localhost build</p>
+                <p className="text-sm text-white/52">Secure provider access</p>
               </div>
             </div>
             <div className="mt-6 grid gap-3 text-sm leading-6 text-white/68">

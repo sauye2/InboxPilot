@@ -82,7 +82,7 @@ export function EmailDetailPanel({
       <Separator />
 
       <div className="space-y-5 p-5">
-        <InfoBlock label="AI-ready summary" value={triage.actionSummary} />
+        <InfoBlock label="Summary" value={triage.actionSummary} />
         <InfoBlock label="Suggested next action" value={triage.suggestedNextAction} />
         <InfoBlock label="Why this was prioritized" value={triage.reason} />
         <InfoBlock

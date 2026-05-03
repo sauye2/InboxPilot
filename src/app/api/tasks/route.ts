@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { updateTaskForEmail } from "@/lib/supabase/triage-persistence";
+import {
+  getPersistedTasks,
+  updateTaskForEmail,
+} from "@/lib/supabase/triage-persistence";
 
 const taskPatchSchema = z.object({
   emailId: z.string().min(1),
@@ -10,6 +13,34 @@ const taskPatchSchema = z.object({
   draftSubject: z.string().nullable().optional(),
   draftBody: z.string().nullable().optional(),
 });
+
+export async function GET() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Sign in before loading tasks." }, { status: 401 });
+  }
+
+  try {
+    const tasks = await getPersistedTasks({
+      admin: createSupabaseAdminClient(),
+      userId: user.id,
+    });
+
+    return NextResponse.json(tasks, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Unable to load tasks.",
+      },
+      { status: 500 },
+    );
+  }
+}
 
 export async function PATCH(request: Request) {
   const supabase = await createSupabaseServerClient();

@@ -21,6 +21,42 @@ export type PersistedInboxState = {
   taskStates: TaskState[];
 };
 
+type PersistedTaskRow = {
+  id: string;
+  email_message_id: string | null;
+  status: TaskStatus;
+  draft_subject: string | null;
+  draft_body: string | null;
+  updated_at: string;
+};
+
+type PersistedEmailRow = {
+  id: string;
+  provider: EmailMessage["provider"];
+  provider_message_id: string;
+  thread_id: string | null;
+  sender_name: string | null;
+  sender_email: string | null;
+  subject: string | null;
+  snippet: string | null;
+  body: string | null;
+  received_at: string;
+  is_read: boolean;
+  labels: string[] | null;
+};
+
+type PersistedTriageRow = {
+  email_message_id: string | null;
+  priority: PriorityLevel;
+  category: string;
+  requires_action: boolean;
+  deadline_text: string | null;
+  action_summary: string | null;
+  suggested_next_action: string | null;
+  reason: string | null;
+  confidence: number | null;
+};
+
 export type TriageFeedbackRule = {
   senderEmail: string | null;
   subjectFingerprint: string | null;
@@ -30,6 +66,125 @@ export type TriageFeedbackRule = {
 
 export function providerMessageId(emailId: string) {
   return emailId;
+}
+
+export async function getPersistedTasks({
+  admin,
+  userId,
+}: {
+  admin: SupabaseClient;
+  userId: string;
+}): Promise<PersistedInboxState> {
+  const { data: taskRows, error: taskError } = await admin
+    .from("tasks")
+    .select("id, email_message_id, status, draft_subject, draft_body, updated_at")
+    .eq("user_id", userId)
+    .neq("status", "archived")
+    .order("updated_at", { ascending: false });
+
+  if (taskError) {
+    throw new Error(taskError.message);
+  }
+
+  const tasks = (taskRows ?? []) as PersistedTaskRow[];
+  const messageIds = tasks
+    .map((task) => task.email_message_id)
+    .filter(Boolean) as string[];
+
+  if (messageIds.length === 0) {
+    return { items: [], taskEmailIds: [], taskStates: [] };
+  }
+
+  const { data: messageRows, error: messageError } = await admin
+    .from("email_messages")
+    .select("id, provider, provider_message_id, thread_id, sender_name, sender_email, subject, snippet, body, received_at, is_read, labels")
+    .eq("user_id", userId)
+    .in("id", messageIds);
+
+  if (messageError) {
+    throw new Error(messageError.message);
+  }
+
+  const { data: triageRows, error: triageError } = await admin
+    .from("triage_results")
+    .select("email_message_id, priority, category, requires_action, deadline_text, action_summary, suggested_next_action, reason, confidence, created_at")
+    .eq("user_id", userId)
+    .in("email_message_id", messageIds)
+    .order("created_at", { ascending: false });
+
+  if (triageError) {
+    throw new Error(triageError.message);
+  }
+
+  const messageById = new Map(
+    ((messageRows ?? []) as PersistedEmailRow[]).map((message) => [message.id, message]),
+  );
+  const triageByMessageId = new Map<string, PersistedTriageRow>();
+
+  for (const triage of (triageRows ?? []) as PersistedTriageRow[]) {
+    if (triage.email_message_id && !triageByMessageId.has(triage.email_message_id)) {
+      triageByMessageId.set(triage.email_message_id, triage);
+    }
+  }
+
+  const items = tasks
+    .map((task) => {
+      if (!task.email_message_id) return null;
+      const message = messageById.get(task.email_message_id);
+      if (!message) return null;
+      const triage = triageByMessageId.get(task.email_message_id);
+      const emailId = message.provider_message_id;
+      const fallbackText = message.snippet ?? message.subject ?? "Review this saved email.";
+
+      return {
+        email: {
+          id: emailId,
+          provider: message.provider,
+          senderName: message.sender_name ?? "Unknown sender",
+          senderEmail: message.sender_email ?? "unknown@example.com",
+          subject: message.subject ?? "(No subject)",
+          body: message.body ?? fallbackText,
+          snippet: message.snippet ?? fallbackText,
+          receivedAt: message.received_at,
+          isRead: Boolean(message.is_read),
+          labels: message.labels ?? [],
+          threadId: message.thread_id ?? emailId,
+        },
+        triage: {
+          emailId,
+          priority: triage?.priority ?? "medium",
+          category: triage?.category ?? "Inbox Noise",
+          requiresAction: triage?.requires_action ?? true,
+          deadline: triage?.deadline_text ?? null,
+          actionSummary: triage?.action_summary ?? fallbackText,
+          reason: triage?.reason ?? "Saved as a task.",
+          confidence: Number(triage?.confidence ?? 0),
+          suggestedNextAction: triage?.suggested_next_action ?? task.draft_subject ?? fallbackText,
+          reviewed: task.status === "done",
+          pinned: false,
+          snoozedUntil: null,
+        },
+      } satisfies TriagedEmail;
+    })
+    .filter(Boolean) as TriagedEmail[];
+
+  return {
+    items,
+    taskEmailIds: items.map((item) => item.email.id),
+    taskStates: tasks
+      .map((task) => {
+        if (!task.email_message_id) return null;
+        const message = messageById.get(task.email_message_id);
+        if (!message) return null;
+        return {
+          emailId: message.provider_message_id,
+          status: task.status,
+          draftSubject: task.draft_subject,
+          draftBody: task.draft_body,
+        };
+      })
+      .filter(Boolean) as TaskState[],
+  };
 }
 
 export async function persistTriagedInbox({

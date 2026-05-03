@@ -22,6 +22,8 @@ const CSS_DECLARATIONS =
   /(?:^|\s)(?:[a-z-]{2,}|--[a-z0-9-]+)\s*:\s*[^;\n{}]{1,180};?/gi;
 const TRACKING_NOISE =
   /\b(?:unsubscribe|view in browser|manage preferences|privacy policy|terms of service)\b[\s\S]{0,120}$/i;
+const QUOTED_REPLY_MARKERS =
+  /\s*(?:>{1,3}\s*)+(?=(?:on\s+\w{3,9},|from:|sent:|to:|subject:|hello|hi|thank you|please|we require|important|need to make|how do))/gi;
 
 export function cleanEmailText(value: string) {
   const hasHtml = /<\/?[a-z][\s\S]*>/i.test(value);
@@ -39,6 +41,7 @@ export function cleanEmailText(value: string) {
     .replace(/\b(?:font|color|background|padding|margin|border|width|height|display|line-height|text-decoration|box-sizing)[-\w]*\b\s*[;}]/gi, " ")
     .replace(/\b[a-z-]+\([^)]{0,180}\)/gi, " ")
     .replace(/\s*!important\b/gi, " ")
+    .replace(QUOTED_REPLY_MARKERS, "\n\n")
     .replace(/https?:\/\/\S{80,}/gi, " ")
     .replace(/[ \t]*>[ \t]*/g, "\n> ")
     .replace(/\n[ \t]+/g, "\n")
@@ -67,6 +70,8 @@ export function compactEmailText(value: string) {
 export function emailTextToParagraphs(value: string, maxParagraphs = 14) {
   const cleaned = cleanEmailText(value);
   const paragraphs = cleaned
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+(?=(?:On\s+\w{3,9},|From:|Sent:|To:|Subject:)\b)/g, "\n\n")
     .split(/\n{2,}/)
     .flatMap((block) => splitDenseBlock(block.trim()))
     .map((paragraph) => paragraph.trim())

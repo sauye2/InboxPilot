@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Copy, Loader2, Pencil, Play, Send, ShieldCheck, Trash2, X } from "lucide-react";
 import type { EmailMessage } from "@/types/email";
 import type { PriorityLevel, TaskState, TaskStatus, TriageMode, TriageResult, TriagedEmail } from "@/types/triage";
@@ -11,9 +11,8 @@ import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { PriorityQueue } from "@/components/email/priority-queue";
 import { analyzeInbox, compareTriagedEmail, summarizeInbox } from "@/lib/triage/analyze-inbox";
 import { emailTextToParagraphs } from "@/lib/email/clean-email-text";
-import { mockEmails } from "@/lib/mock/mock-emails";
 
-type InboxSource = "mock" | "gmail" | "outlook";
+type InboxSource = "gmail" | "outlook";
 type OpenAIConsentPreference = "accepted" | "declined" | null;
 
 type DashboardClientProps = {
@@ -36,11 +35,16 @@ export function DashboardClient({
   initialAIProcessingEnabled = false,
   initialOpenAITriageEnabled = false,
 }: DashboardClientProps) {
+  const initialSource: InboxSource = hasGmailConnection
+    ? "gmail"
+    : hasOutlookConnection
+      ? "outlook"
+      : "gmail";
   const [mode, setMode] = useState<TriageMode>("job_search");
   const [hasRun, setHasRun] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  const [source, setSource] = useState<InboxSource>("mock");
-  const [activeEmails, setActiveEmails] = useState<EmailMessage[]>(mockEmails);
+  const [source, setSource] = useState<InboxSource>(initialSource);
+  const [activeEmails, setActiveEmails] = useState<EmailMessage[]>([]);
   const [openAIItems, setOpenAIItems] = useState<TriagedEmail[] | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [showConsent, setShowConsent] = useState(false);
@@ -50,12 +54,38 @@ export function DashboardClient({
   const [selectedFilter, setSelectedFilter] = useState<string>("needs_action");
   const [taskIds, setTaskIds] = useState<string[]>([]);
   const [taskStates, setTaskStates] = useState<TaskState[]>([]);
+  const [accountTasks, setAccountTasks] = useState<TriagedEmail[]>([]);
   const [reviewState, setReviewState] = useState<Record<string, Partial<TriageResult>>>({});
   const modeRef = useRef<TriageMode>("job_search");
-  const sourceRef = useRef<InboxSource>("mock");
+  const sourceRef = useRef<InboxSource>(initialSource);
   const initialConsent: OpenAIConsentPreference =
     initialAIProcessingEnabled && initialOpenAITriageEnabled ? "accepted" : null;
   const controlsLocked = isScanning || showConsent;
+  const sourceConnected =
+    source === "gmail" ? hasGmailConnection : hasOutlookConnection;
+
+  const loadPersistedTasks = useCallback(async () => {
+    try {
+      const response = await fetch("/api/tasks", { cache: "no-store" });
+      const payload = await readJsonResponse(response);
+
+      if (!response.ok) return;
+
+      setAccountTasks(payload.items ?? []);
+      setTaskIds(payload.taskEmailIds ?? []);
+      setTaskStates(payload.taskStates ?? []);
+    } catch {
+      // Task hydration should not block scanning or dashboard usage.
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadPersistedTasks();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadPersistedTasks]);
 
   const analyzed = useMemo(() => {
     if (!openAIItems) {
@@ -154,11 +184,13 @@ export function DashboardClient({
     setScanError(null);
 
     try {
-      let emails = scanSource === "mock" ? mockEmails : activeEmails;
-
-      if (scanSource === "gmail" || scanSource === "outlook") {
-        emails = await fetchProviderMessagesWithRetry(scanSource);
+      if (
+        (scanSource === "gmail" && !hasGmailConnection) ||
+        (scanSource === "outlook" && !hasOutlookConnection)
+      ) {
+        throw new Error(`Connect ${scanSource === "gmail" ? "Gmail" : "Outlook"} before scanning.`);
       }
+      const emails = await fetchProviderMessagesWithRetry(scanSource);
 
       const response = await fetch("/api/triage", {
         method: "POST",
@@ -177,10 +209,9 @@ export function DashboardClient({
 
       setOpenAIItems(payload.items);
       setActiveEmails(payload.items.map((item: TriagedEmail) => item.email));
-      setTaskIds(payload.taskEmailIds ?? []);
-      setTaskStates(payload.taskStates ?? []);
       setHasRun(true);
       setSelectedId(null);
+      void loadPersistedTasks();
     } catch (error) {
       setScanError(error instanceof Error ? error.message : "Scan failed.");
     } finally {
@@ -216,7 +247,14 @@ export function DashboardClient({
   }
 
   function addTask(id: string) {
+    const item = analyzed.items.find((candidate) => candidate.email.id === id);
+
     setTaskIds((current) => (current.includes(id) ? current : [...current, id]));
+    if (item) {
+      setAccountTasks((current) =>
+        current.some((task) => task.email.id === id) ? current : [item, ...current],
+      );
+    }
     setTaskStates((current) =>
       current.some((task) => task.emailId === id)
         ? current
@@ -269,6 +307,7 @@ export function DashboardClient({
         current ? current.filter((candidate) => candidate.email.id !== id) : current,
       );
       setActiveEmails((current) => current.filter((email) => email.id !== id));
+      setAccountTasks((current) => current.filter((task) => task.email.id !== id));
       setTaskIds((current) => current.filter((emailId) => emailId !== id));
       setTaskStates((current) => current.filter((task) => task.emailId !== id));
       setSelectedId((current) => (current === id ? null : current));
@@ -363,7 +402,7 @@ export function DashboardClient({
           <div className="liquid-glass-dark relative rounded-2xl p-6 text-[#f7f6f1] sm:p-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-[#8bd3c7]/20 bg-[#8bd3c7]/12 px-3 py-1.5 text-xs font-medium text-[#8bd3c7]">
               <ShieldCheck className="size-3.5" />
-              Local-first MVP with mock inbox data
+              Privacy-conscious inbox triage
             </div>
 
             <h1 className="-ml-2 mt-4 max-w-3xl text-6xl font-semibold leading-none tracking-normal sm:text-7xl">
@@ -374,8 +413,8 @@ export function DashboardClient({
             </h1>
             <div className="mt-3 flex flex-col gap-5 lg:block">
               <p className="max-w-[calc(100%-10rem)] text-lg leading-8 text-white/64">
-                Choose a workflow, scan realistic mock emails, and keep the next
-                actions that matter visible without connecting a real inbox.
+                Choose a workflow, scan your connected inbox, and keep the next
+                actions that matter visible.
               </p>
             </div>
             <div
@@ -388,7 +427,7 @@ export function DashboardClient({
               <Button
                 size="lg"
                 onClick={runScan}
-                disabled={isScanning}
+                disabled={isScanning || !sourceConnected}
                 className="h-10 w-fit shrink-0 rounded-full border border-white/70 bg-[#fffdf7]/92 px-4 text-[#141817] shadow-lg shadow-black/18 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-xl"
               >
                 {isScanning ? (
@@ -399,9 +438,7 @@ export function DashboardClient({
                 {isScanning
                   ? source === "gmail"
                     ? "Scanning Gmail Inbox"
-                    : source === "outlook"
-                      ? "Scanning Outlook Inbox"
-                      : "Scanning Mock Inbox"
+                    : "Scanning Outlook Inbox"
                   : hasRun
                     ? "Run Scan again"
                     : "Run Scan"}
@@ -410,18 +447,16 @@ export function DashboardClient({
           </div>
 
           <div className="liquid-glass rounded-xl border-black/10 bg-white/58 p-2">
-            <div className="relative grid h-10 grid-cols-3 overflow-hidden rounded-lg border border-black/5 bg-[#ede9df]/66 p-1">
+            <div className="relative grid h-10 grid-cols-2 overflow-hidden rounded-lg border border-black/5 bg-[#ede9df]/66 p-1">
               <span
                 className="absolute bottom-1 top-1 rounded-md border border-white/70 bg-[#fffdf7]/92 shadow-lg shadow-black/10 transition-transform duration-300 ease-out"
                 style={{
                   left: "0.25rem",
-                  width: "calc((100% - 0.5rem) / 3)",
-                  transform: `translateX(${
-                    source === "gmail" ? 100 : source === "outlook" ? 200 : 0
-                  }%)`,
+                  width: "calc((100% - 0.5rem) / 2)",
+                  transform: `translateX(${source === "outlook" ? 100 : 0}%)`,
                 }}
               />
-            {(["mock", "gmail", "outlook"] as const).map((option) => {
+            {(["gmail", "outlook"] as const).map((option) => {
               const selected = source === option;
               const disabled =
                 controlsLocked ||
@@ -437,12 +472,10 @@ export function DashboardClient({
                     if (controlsLocked) return;
                     sourceRef.current = option;
                     setSource(option);
-                    setActiveEmails(option === "mock" ? mockEmails : []);
+                    setActiveEmails([]);
                     setOpenAIItems(null);
                     setHasRun(false);
                     setSelectedId(null);
-                    setTaskIds([]);
-                    setTaskStates([]);
                   }}
                     className={`relative z-10 flex h-full items-center justify-center rounded-md text-sm font-semibold transition-colors duration-300 ${
                       selected
@@ -450,11 +483,7 @@ export function DashboardClient({
                         : "text-[#59635f] hover:text-[#141817]"
                     } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
                   >
-                    {option === "mock"
-                      ? "Mock Inbox"
-                      : option === "gmail"
-                        ? "Gmail Inbox"
-                        : "Outlook Inbox"}
+                    {option === "gmail" ? "Gmail Inbox" : "Outlook Inbox"}
                   </button>
                 );
               })}
@@ -526,8 +555,7 @@ export function DashboardClient({
                 Ready when you are
               </h2>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#68716d]">
-                Run Scan to process the local mock inbox. No email account is
-                connected and no credentials are required.
+                Run Scan to process your selected connected inbox.
               </p>
             </div>
           )}
@@ -535,11 +563,12 @@ export function DashboardClient({
       </section>
 
       <section className="mt-8">
-        <TaskList
-          tasks={analyzed.items.filter((item) => taskIds.includes(item.email.id))}
+          <TaskList
+          tasks={accountTasks}
           taskStates={taskStates}
           onToggleReviewed={toggleReviewed}
           onRemove={(id) => {
+            setAccountTasks((current) => current.filter((task) => task.email.id !== id));
             setTaskIds((current) => current.filter((taskId) => taskId !== id));
             updateTaskState(id, { status: "archived" });
           }}
@@ -869,7 +898,11 @@ function TaskList({
                     disabled={draftingId === selectedTask.email.id}
                     onClick={() => generateReply(selectedTask.email.id)}
                   >
-                    {draftingId === selectedTask.email.id ? "Drafting..." : "Generate draft"}
+                    {draftingId === selectedTask.email.id
+                      ? "Drafting..."
+                      : getDraftBody(selectedTask.email.id)
+                        ? "Regenerate"
+                        : "Generate draft"}
                   </button>
                 </div>
               </div>
@@ -920,7 +953,7 @@ function TaskList({
                 }
               >
                 <Send className="size-3.5" />
-                {sendingId === selectedTask.email.id ? "Sending..." : "Send reply"}
+                {sendingId === selectedTask.email.id ? "Sending..." : "Send Reply"}
               </button>
             ) : null}
             <button

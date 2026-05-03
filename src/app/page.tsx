@@ -45,9 +45,9 @@ const useCases = [
 ];
 
 const privacyPrinciples = [
-  "This demo does not connect to real inboxes.",
-  "InboxPilot should not store email bodies by default.",
-  "Production OAuth tokens must be encrypted and revocable.",
+  "InboxPilot connects only after explicit user consent.",
+  "InboxPilot does not retain full email bodies by default.",
+  "OAuth tokens are encrypted, revocable, and server-side.",
   "AI processing should be explicit, scoped, and auditable.",
 ];
 
@@ -66,15 +66,15 @@ export default function Home() {
         <div className="relative mx-auto grid min-h-[calc(100dvh-5rem)] max-w-[1500px] gap-10 lg:grid-cols-[minmax(0,1fr)_520px] lg:items-center">
           <ScrollReveal className="max-w-5xl lg:-mt-20" direction="left">
             <Badge className="rounded-md bg-[#e7f1ec] px-3 py-1 text-[#155f59] hover:bg-[#e7f1ec]">
-              Local preview. No real email data stored.
+              Privacy-conscious Gmail and Outlook triage.
             </Badge>
             <h1 className="mt-8 max-w-5xl text-[clamp(4rem,12vw,11rem)] font-semibold leading-[0.86] tracking-normal">
               Your inbox, ranked by consequence.
             </h1>
             <p className="mt-8 max-w-2xl text-lg leading-8 text-[#4a504d]">
-              InboxPilot is an AI-ready triage layer for confidential email. It
-              identifies what needs attention, explains why, and keeps the first
-              version safely local with mock data only.
+              InboxPilot is a secure triage layer for confidential email. It
+              scans connected inboxes, ranks what needs attention, and turns
+              urgent messages into clear next steps.
             </p>
 
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
@@ -86,7 +86,7 @@ export default function Home() {
                     "h-12 bg-[#141817] px-5 text-[#f7f6f1] hover:bg-[#27302d]",
                 })}
               >
-                Explore local demo
+                Begin now
                 <ArrowRight className="size-4" />
               </Link>
             </div>
@@ -255,9 +255,9 @@ export default function Home() {
               Not a black box. A reviewable ranking.
             </h2>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-[#4a504d]">
-              The MVP uses deterministic local rules so every recommendation can
-              be inspected. Later, an OpenAI-backed service can replace the
-              local engine without changing the product workflow.
+              InboxPilot combines provider metadata, deadline signals, personal
+              feedback, and OpenAI-assisted parsing so every recommendation can
+              stay focused on the workflow you selected.
             </p>
           </ScrollReveal>
         </div>
@@ -276,9 +276,9 @@ export default function Home() {
               Email data should stay under the user&apos;s control.
             </h2>
             <p className="mt-6 max-w-xl text-lg leading-8 text-[#4a504d]">
-              InboxPilot is being designed for sensitive per-user inboxes. This
-              website does not store email data, and the local MVP uses mock
-              messages only.
+              InboxPilot is designed for sensitive per-user inboxes. Connected
+              email is processed only after explicit consent, and full message
+              bodies are not retained by default.
             </p>
           </ScrollReveal>
 
@@ -308,12 +308,12 @@ export default function Home() {
                 <div>
                   <p className="text-sm uppercase text-[#8bd3c7]">Begin now</p>
                   <h2 className="mt-4 max-w-4xl text-5xl font-semibold leading-none tracking-normal sm:text-7xl">
-                    Connect later. Preview safely today.
+                    Connect your inbox. Keep control.
                   </h2>
                   <p className="mt-6 max-w-2xl text-lg leading-8 text-white/62">
-                    Start at the connections page to see the planned Gmail,
-                    Outlook, and Yahoo sign-in paths. In this version, those
-                    providers remain off and no mailbox content is stored.
+                    Start at the connections page, link Gmail or Outlook, and
+                    scan recent messages with clear controls for AI parsing,
+                    task tracking, archiving, and approved replies.
                   </p>
                 </div>
                 <div className="grid gap-3">
@@ -349,7 +349,7 @@ export default function Home() {
 
       <footer className="border-t border-black/10 px-5 py-8 sm:px-8">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-3 text-sm text-[#68716d] sm:flex-row sm:items-center sm:justify-between">
-          <p>InboxPilot local-first email triage.</p>
+          <p>InboxPilot privacy-conscious email triage.</p>
           <div className="flex items-center gap-4">
             <Link href="/privacy" className="transition hover:text-[#141817]">
               Privacy Policy
