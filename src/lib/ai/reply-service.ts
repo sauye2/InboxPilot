@@ -6,7 +6,7 @@ import { z } from "zod";
 const replySuggestionSchema = z.object({
   subject: z.string().min(1).max(120),
   body: z.string().min(1).max(1200),
-  tone: z.enum(["concise", "professional", "warm", "firm"]),
+  tone: z.enum(["concise", "professional", "warm", "friendly", "firm"]),
   caveats: z.array(z.string()).max(4),
 });
 
@@ -36,7 +36,7 @@ export class OpenAIReplyService {
         {
           role: "system",
           content:
-            "Draft a helpful email reply. Use a professional email format with greeting, concise body, and signoff on separate lines. Do not claim the user completed actions they have not confirmed. Keep the reply concise and ready to edit. Use [Your Name] as the signature placeholder unless the user's name is explicit.",
+            "Draft a helpful email reply. Use a professional email format with greeting, concise body, and signoff on separate lines. Match the requested tone: concise is brief and direct, professional is polished and neutral, warm is considerate, friendly is casual but still respectful, and firm is clear without being rude. Do not claim the user completed actions they have not confirmed. Keep the reply concise and ready to edit. Use [Your Name] as the signature placeholder unless the user's name is explicit.",
         },
         {
           role: "user",

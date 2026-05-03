@@ -19,7 +19,7 @@ import {
   DeadlineBadge,
   PriorityBadge,
 } from "@/components/email/triage-badges";
-import { emailTextToParagraphs } from "@/lib/email/clean-email-text";
+import { ThreadBodyView } from "@/components/email/thread-body-view";
 import { getModeDefinition } from "@/lib/triage/modes";
 import { cn } from "@/lib/utils";
 
@@ -276,10 +276,6 @@ function EmailFocusView({
   const alreadyTask = taskIds.includes(email.id);
   const [addedTaskIds, setAddedTaskIds] = useState<Set<string>>(() => new Set());
   const taskAdded = alreadyTask || addedTaskIds.has(email.id);
-  const originalEmailParagraphs = emailTextToParagraphs(
-    email.body || email.snippet,
-    16,
-  );
 
   return (
       <div className="animate-in fade-in slide-in-from-right-4 mt-4 duration-500">
@@ -356,28 +352,11 @@ function EmailFocusView({
             <p className="text-xs font-medium uppercase text-[#68716d]">
               Original email
             </p>
-            <div className="mt-2 max-h-[360px] overflow-auto rounded-lg bg-[#f1f0ea] p-4 text-sm leading-6 text-[#33423d]">
-              {originalEmailParagraphs.length > 0 ? (
-                <div className="space-y-3">
-                  {originalEmailParagraphs.map((paragraph, index) => (
-                    <p
-                      key={`${index}-${paragraph.slice(0, 16)}`}
-                      className={
-                        paragraph.startsWith("Earlier message")
-                          ? "rounded-md bg-[#f3eefc] px-3 py-2 text-[#5b5170]"
-                          : paragraph.startsWith("Latest message")
-                            ? "font-semibold text-[#25332f]"
-                            : undefined
-                      }
-                    >
-                      {paragraph}
-                    </p>
-                  ))}
-                </div>
-              ) : (
-                <p>No readable email body was available.</p>
-              )}
-            </div>
+            <ThreadBodyView
+              text={email.body || email.snippet}
+              className="mt-2"
+              maxHeightClassName="max-h-[330px]"
+            />
           </div>
         </div>
 

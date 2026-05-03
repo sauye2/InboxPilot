@@ -7,7 +7,7 @@ import { findPersistedEmailMessage } from "@/lib/supabase/triage-persistence";
 
 const replyRequestSchema = z.object({
   emailId: z.string().min(1),
-  tone: z.enum(["concise", "professional", "warm", "firm"]).default("professional"),
+  tone: z.enum(["concise", "professional", "warm", "friendly", "firm"]).default("professional"),
 });
 
 export async function POST(request: Request) {

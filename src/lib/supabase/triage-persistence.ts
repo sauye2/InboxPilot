@@ -24,9 +24,14 @@ export type PersistedInboxState = {
 type PersistedTaskRow = {
   id: string;
   email_message_id: string | null;
+  title: string | null;
   status: TaskStatus;
+  provider: EmailMessage["provider"] | null;
+  provider_message_id: string | null;
+  provider_thread_id: string | null;
   draft_subject: string | null;
   draft_body: string | null;
+  last_inbound_at: string | null;
   updated_at: string;
 };
 
@@ -79,7 +84,7 @@ export async function getPersistedTasks({
 }): Promise<PersistedInboxState> {
   const taskQuery = admin
     .from("tasks")
-    .select("id, email_message_id, status, draft_subject, draft_body, updated_at")
+    .select("id, email_message_id, title, status, provider, provider_message_id, provider_thread_id, draft_subject, draft_body, last_inbound_at, updated_at")
     .eq("user_id", userId)
     .neq("status", "archived");
 
@@ -95,66 +100,120 @@ export async function getPersistedTasks({
   const messageIds = tasks
     .map((task) => task.email_message_id)
     .filter(Boolean) as string[];
+  const providerMessageIds = tasks
+    .map((task) => task.provider_message_id)
+    .filter(Boolean) as string[];
 
-  if (messageIds.length === 0) {
+  if (tasks.length === 0) {
     return { items: [], taskEmailIds: [], taskStates: [] };
   }
 
-  const { data: messageRows, error: messageError } = await admin
-    .from("email_messages")
-    .select("id, provider, provider_message_id, thread_id, sender_name, sender_email, subject, snippet, body, received_at, is_read, labels")
-    .eq("user_id", userId)
-    .in("id", messageIds);
+  const messageRows: PersistedEmailRow[] = [];
 
-  if (messageError) {
-    throw new Error(messageError.message);
+  if (messageIds.length > 0) {
+    const { data, error } = await admin
+      .from("email_messages")
+      .select("id, provider, provider_message_id, thread_id, sender_name, sender_email, subject, snippet, body, received_at, is_read, labels")
+      .eq("user_id", userId)
+      .in("id", messageIds);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    messageRows.push(...((data ?? []) as PersistedEmailRow[]));
   }
 
-  const { data: triageRows, error: triageError } = await admin
-    .from("triage_results")
-    .select("email_message_id, priority, category, requires_action, deadline_text, action_summary, suggested_next_action, reason, confidence, created_at")
-    .eq("user_id", userId)
-    .in("email_message_id", messageIds)
-    .order("created_at", { ascending: false });
+  if (providerMessageIds.length > 0) {
+    const { data, error } = await admin
+      .from("email_messages")
+      .select("id, provider, provider_message_id, thread_id, sender_name, sender_email, subject, snippet, body, received_at, is_read, labels")
+      .eq("user_id", userId)
+      .in("provider_message_id", providerMessageIds);
 
-  if (triageError) {
-    throw new Error(triageError.message);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    for (const row of (data ?? []) as PersistedEmailRow[]) {
+      if (!messageRows.some((message) => message.id === row.id)) {
+        messageRows.push(row);
+      }
+    }
+  }
+
+  const triageMessageIds = [...new Set(messageRows.map((message) => message.id))];
+  let triageRows: PersistedTriageRow[] = [];
+
+  if (triageMessageIds.length > 0) {
+    const { data, error } = await admin
+      .from("triage_results")
+      .select("email_message_id, priority, category, requires_action, deadline_text, action_summary, suggested_next_action, reason, confidence, created_at")
+      .eq("user_id", userId)
+      .in("email_message_id", triageMessageIds)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    triageRows = (data ?? []) as PersistedTriageRow[];
   }
 
   const messageById = new Map(
-    ((messageRows ?? []) as PersistedEmailRow[]).map((message) => [message.id, message]),
+    messageRows.map((message) => [message.id, message]),
+  );
+  const messageByProviderMessageId = new Map(
+    messageRows.map((message) => [`${message.provider}:${message.provider_message_id}`, message]),
   );
   const triageByMessageId = new Map<string, PersistedTriageRow>();
 
-  for (const triage of (triageRows ?? []) as PersistedTriageRow[]) {
+  for (const triage of triageRows) {
     if (triage.email_message_id && !triageByMessageId.has(triage.email_message_id)) {
       triageByMessageId.set(triage.email_message_id, triage);
     }
   }
 
+  const getMessageForTask = (task: PersistedTaskRow) => {
+    if (task.email_message_id) {
+      const message = messageById.get(task.email_message_id);
+      if (message) return message;
+    }
+
+    if (task.provider && task.provider_message_id) {
+      return messageByProviderMessageId.get(`${task.provider}:${task.provider_message_id}`) ?? null;
+    }
+
+    return null;
+  };
+
   const items = tasks
     .map((task) => {
-      if (!task.email_message_id) return null;
-      const message = messageById.get(task.email_message_id);
-      if (!message) return null;
-      if (provider && message.provider !== provider) return null;
-      const triage = triageByMessageId.get(task.email_message_id);
-      const emailId = message.provider_message_id;
-      const fallbackText = message.snippet ?? message.subject ?? "Review this saved email.";
+      const message = getMessageForTask(task);
+      const taskProvider = message?.provider ?? task.provider;
+      if (provider && taskProvider !== provider) return null;
+      const triage = message?.id ? triageByMessageId.get(message.id) : undefined;
+      const emailId = message?.provider_message_id ?? task.provider_message_id ?? task.email_message_id ?? task.id;
+      const fallbackText =
+        message?.snippet ??
+        message?.subject ??
+        task.draft_subject ??
+        task.title ??
+        "Review this saved email.";
 
       return {
         email: {
           id: emailId,
-          provider: message.provider,
-          senderName: message.sender_name ?? "Unknown sender",
-          senderEmail: message.sender_email ?? "unknown@example.com",
-          subject: message.subject ?? "(No subject)",
-          body: message.body ?? fallbackText,
-          snippet: message.snippet ?? fallbackText,
-          receivedAt: message.received_at,
-          isRead: Boolean(message.is_read),
-          labels: message.labels ?? [],
-          threadId: message.thread_id ?? emailId,
+          provider: taskProvider ?? "gmail",
+          senderName: message?.sender_name ?? "Saved email",
+          senderEmail: message?.sender_email ?? "saved-email@inboxpilot.local",
+          subject: message?.subject ?? task.title ?? "(Saved email)",
+          body: message?.body ?? fallbackText,
+          snippet: message?.snippet ?? fallbackText,
+          receivedAt: message?.received_at ?? task.last_inbound_at ?? task.updated_at,
+          isRead: Boolean(message?.is_read ?? true),
+          labels: message?.labels ?? [],
+          threadId: message?.thread_id ?? task.provider_thread_id ?? emailId,
         },
         triage: {
           emailId,
@@ -174,17 +233,20 @@ export async function getPersistedTasks({
     })
     .filter(Boolean) as TriagedEmail[];
 
+  const itemByEmailId = new Map(items.map((item) => [item.email.id, item]));
+
   return {
     items,
     taskEmailIds: items.map((item) => item.email.id),
     taskStates: tasks
       .map((task) => {
-        if (!task.email_message_id) return null;
-        const message = messageById.get(task.email_message_id);
-        if (!message) return null;
-        if (provider && message.provider !== provider) return null;
+        const message = getMessageForTask(task);
+        const taskProvider = message?.provider ?? task.provider;
+        if (provider && taskProvider !== provider) return null;
+        const emailId = message?.provider_message_id ?? task.provider_message_id ?? task.email_message_id ?? task.id;
+        if (!itemByEmailId.has(emailId)) return null;
         return {
-          emailId: message.provider_message_id,
+          emailId,
           status: task.status,
           draftSubject: task.draft_subject,
           draftBody: task.draft_body,
@@ -515,6 +577,10 @@ export async function updateTaskForEmail({
   }
 
   const patch: Record<string, string | null> = {};
+  patch.provider = persisted.email.provider;
+  patch.provider_message_id = providerMessageId(persisted.email.id);
+  patch.provider_thread_id = persisted.email.threadId;
+  patch.last_inbound_at = persisted.email.receivedAt;
   if (status) patch.status = status;
   if (draftSubject !== undefined) patch.draft_subject = draftSubject;
   if (draftBody !== undefined) {

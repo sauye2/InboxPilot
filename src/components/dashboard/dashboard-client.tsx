@@ -9,8 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ModeSelector } from "@/components/dashboard/mode-selector";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { PriorityQueue } from "@/components/email/priority-queue";
+import { ThreadBodyView } from "@/components/email/thread-body-view";
 import { analyzeInbox, compareTriagedEmail, summarizeInbox } from "@/lib/triage/analyze-inbox";
-import { emailTextToParagraphs } from "@/lib/email/clean-email-text";
 
 type InboxSource = "gmail" | "outlook";
 type OpenAIConsentPreference = "accepted" | "declined" | null;
@@ -709,7 +709,7 @@ function TaskList({
   const [draftError, setDraftError] = useState<string | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [tone, setTone] = useState<"concise" | "professional" | "warm" | "firm">("professional");
+  const [tone, setTone] = useState<"concise" | "professional" | "warm" | "friendly" | "firm">("professional");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isClosingTask, setIsClosingTask] = useState(false);
   const [isEditingTasks, setIsEditingTasks] = useState(false);
@@ -889,14 +889,11 @@ function TaskList({
               <p className="text-xs font-semibold uppercase text-[#68716d]">
                 Original email
               </p>
-              <div className="mt-3 space-y-3 text-sm leading-6 text-[#33423d]">
-                {emailTextToParagraphs(
-                  selectedTask.email.body || selectedTask.email.snippet,
-                  18,
-                ).map((paragraph, index) => (
-                  <p key={`${index}-${paragraph.slice(0, 16)}`}>{paragraph}</p>
-                ))}
-              </div>
+              <ThreadBodyView
+                text={selectedTask.email.body || selectedTask.email.snippet}
+                className="mt-3"
+                maxHeightClassName="max-h-[430px]"
+              />
             </div>
             <div className="rounded-xl border border-black/8 bg-white/62 p-4">
               <div className="flex items-center justify-between gap-3">
@@ -907,12 +904,13 @@ function TaskList({
                   <select
                     value={tone}
                     onChange={(event) =>
-                      setTone(event.target.value as "concise" | "professional" | "warm" | "firm")
+                      setTone(event.target.value as "concise" | "professional" | "warm" | "friendly" | "firm")
                     }
                     className="h-8 rounded-full border border-black/10 bg-[#fffdf7]/80 px-3 text-xs font-semibold text-[#33423d] outline-none"
                   >
                     <option value="professional">Professional</option>
                     <option value="concise">Concise</option>
+                    <option value="friendly">Friendly</option>
                     <option value="warm">Warm</option>
                     <option value="firm">Firm</option>
                   </select>
