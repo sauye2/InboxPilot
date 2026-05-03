@@ -74,8 +74,8 @@ export class OpenAITriageService implements TriageService {
                 senderName: email.senderName,
                 senderEmail: email.senderEmail,
                 subject: truncateForPrompt(email.subject, 220),
-                snippet: truncateForPrompt(email.snippet, 700),
-                body: truncateForPrompt(email.body, 2200),
+                snippet: truncateForPrompt(email.snippet, 520),
+                body: truncateForPrompt(email.body, 1500),
                 receivedAt: email.receivedAt,
                 isRead: email.isRead,
                 labels: email.labels.slice(0, 8),
@@ -87,7 +87,7 @@ export class OpenAITriageService implements TriageService {
           format: zodTextFormat(triageSchema, "inboxpilot_email_triage"),
           verbosity: "low",
         },
-        max_output_tokens: 450,
+        max_output_tokens: 360,
       }),
     );
 

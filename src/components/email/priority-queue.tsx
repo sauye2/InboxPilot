@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArrowLeft,
   CalendarClock,
@@ -18,7 +19,7 @@ import {
   DeadlineBadge,
   PriorityBadge,
 } from "@/components/email/triage-badges";
-import { compactEmailText } from "@/lib/email/clean-email-text";
+import { emailTextToParagraphs } from "@/lib/email/clean-email-text";
 import { getModeDefinition } from "@/lib/triage/modes";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ type PriorityQueueProps = {
   onBack: () => void;
   onAddTask: (id: string) => void;
   onDeleteEmail: (id: string) => void;
+  taskIds: string[];
   mode: TriageMode;
   onFeedback: (
     id: string,
@@ -47,6 +49,7 @@ export function PriorityQueue({
   onBack,
   onAddTask,
   onDeleteEmail,
+  taskIds,
   mode,
   onFeedback,
 }: PriorityQueueProps) {
@@ -93,6 +96,7 @@ export function PriorityQueue({
             onAddTask={onAddTask}
             onDeleteEmail={onDeleteEmail}
             onPin={onPin}
+            taskIds={taskIds}
             categories={categories}
             onFeedback={onFeedback}
           />
@@ -216,7 +220,7 @@ function QueueItem({
             }}
           >
             <ListPlus className="size-3.5" />
-            Add to task list
+            Add to Tasks
           </Button>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -251,6 +255,7 @@ function EmailFocusView({
   onAddTask,
   onDeleteEmail,
   onPin,
+  taskIds,
   categories,
   onFeedback,
 }: {
@@ -260,6 +265,7 @@ function EmailFocusView({
   onAddTask: (id: string) => void;
   onDeleteEmail: (id: string) => void;
   onPin: (id: string) => void;
+  taskIds: string[];
   categories: string[];
   onFeedback: (
     id: string,
@@ -267,6 +273,13 @@ function EmailFocusView({
   ) => void;
 }) {
   const { email, triage } = item;
+  const alreadyTask = taskIds.includes(email.id);
+  const [addedTaskIds, setAddedTaskIds] = useState<Set<string>>(() => new Set());
+  const taskAdded = alreadyTask || addedTaskIds.has(email.id);
+  const originalEmailParagraphs = emailTextToParagraphs(
+    email.body || email.snippet,
+    16,
+  );
 
   return (
       <div className="animate-in fade-in slide-in-from-right-4 mt-4 duration-500">
@@ -286,7 +299,7 @@ function EmailFocusView({
       </div>
 
       <div className="mt-5 rounded-xl border border-black/10 bg-[#fffdf7]/78 p-5">
-        <div className="liquid-glass rounded-xl border-white/70 bg-white/38 p-4 shadow-lg shadow-black/10 ring-1 ring-white/45">
+        <div className="liquid-glass relative rounded-xl border-white/70 bg-white/38 p-4 pb-16 shadow-lg shadow-black/10 ring-1 ring-white/45">
           <p className="text-xs font-medium uppercase text-[#68716d]">
             Email detail
           </p>
@@ -311,6 +324,28 @@ function EmailFocusView({
             onFeedback={onFeedback}
             className="mt-4"
           />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={taskAdded}
+            className={cn(
+              "absolute bottom-4 right-4 h-9 rounded-full border-[#d9e8e4] bg-[#eef8f5] px-3 text-xs font-semibold text-[#0e6f68] transition-all duration-300 hover:bg-[#dff3eb]",
+              taskAdded && "pointer-events-none opacity-55",
+            )}
+            onClick={() => {
+              onAddTask(email.id);
+              setAddedTaskIds((current) => new Set(current).add(email.id));
+            }}
+          >
+            <CheckCircle2
+              className={cn(
+                "size-3.5 transition-transform duration-300",
+                taskAdded ? "scale-110" : "hidden",
+              )}
+            />
+            {!taskAdded ? <ListPlus className="size-3.5" /> : null}
+            {taskAdded ? "Added to Tasks" : "Add to Tasks"}
+          </Button>
         </div>
 
         <div className="mt-6 grid gap-5">
@@ -319,13 +354,23 @@ function EmailFocusView({
             <p className="text-xs font-medium uppercase text-[#68716d]">
               Original email
             </p>
-            <p className="mt-2 rounded-lg bg-[#f1f0ea] p-4 text-sm leading-6 text-[#33423d]">
-              {compactEmailText(email.body || email.snippet)}
-            </p>
+            <div className="mt-2 max-h-[360px] overflow-auto rounded-lg bg-[#f1f0ea] p-4 text-sm leading-6 text-[#33423d]">
+              {originalEmailParagraphs.length > 0 ? (
+                <div className="space-y-3">
+                  {originalEmailParagraphs.map((paragraph, index) => (
+                    <p key={`${index}-${paragraph.slice(0, 16)}`}>
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p>No readable email body was available.</p>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-2 sm:grid-cols-3">
+        <div className="mt-6 grid gap-2 sm:grid-cols-2">
           <Button
             className="bg-[#141817] text-[#f7f6f1] hover:bg-[#27302d]"
             onClick={() => {
@@ -335,10 +380,6 @@ function EmailFocusView({
           >
             <CheckCircle2 className="size-4" />
             {triage.reviewed ? "Unmark reviewed" : "Mark reviewed"}
-          </Button>
-          <Button variant="outline" onClick={() => onAddTask(email.id)}>
-            <ListPlus className="size-4" />
-            Add to task list
           </Button>
           <Button
             variant="outline"

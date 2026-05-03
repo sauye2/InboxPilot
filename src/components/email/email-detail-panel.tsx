@@ -114,7 +114,7 @@ export function EmailDetailPanel({
           </Button>
           <Button variant="outline">
             <ListPlus className="size-4" />
-            Add to task list
+            Add to Tasks
           </Button>
         </div>
       </div>

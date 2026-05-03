@@ -684,7 +684,11 @@ function subjectFingerprint(subject: string) {
     .toLowerCase()
     .replace(/\bre:\s*/g, "")
     .replace(/\b(fwd?|fw):\s*/g, "")
+    .replace(/[“"][^”"]{2,120}[”"]/g, "")
+    .replace(/\b\d{1,3}%\s*(?:match|off|discount)?\b/g, "")
     .replace(/\d{1,4}([/-]\d{1,2}){1,2}/g, "")
+    .replace(/\b(?:today|tomorrow|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/g, "")
+    .replace(/\b(?:latest|new|top|recommended|matches?|jobs?|roles?|alerts?|update|available|posted)\b/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 160);

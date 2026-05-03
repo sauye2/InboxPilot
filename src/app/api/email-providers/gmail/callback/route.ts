@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   exchangeGmailCode,
   fetchGmailProfile,
+  GMAIL_MODIFY_SCOPE,
   verifyOAuthState,
 } from "@/lib/email-providers/gmail-oauth";
 import { encryptSecret } from "@/lib/security/encryption";
@@ -37,6 +38,17 @@ export async function GET(request: Request) {
 
   try {
     const tokenSet = await exchangeGmailCode(code);
+    const grantedScopes = tokenSet.scope.split(" ").filter(Boolean);
+
+    if (!grantedScopes.includes(GMAIL_MODIFY_SCOPE)) {
+      return NextResponse.redirect(
+        new URL(
+          "/connections?message=Gmail%20connection%20needs%20the%20requested%20mailbox%20permission.",
+          url.origin,
+        ),
+      );
+    }
+
     const profile = await fetchGmailProfile(tokenSet.access_token);
     const admin = createSupabaseAdminClient();
 
@@ -46,7 +58,7 @@ export async function GET(request: Request) {
         provider: "gmail",
         provider_account_email: profile.emailAddress,
         status: "connected",
-        scopes: tokenSet.scope.split(" "),
+        scopes: grantedScopes,
         token_vault_key: tokenSet.refresh_token
           ? "pending_encrypted_token_storage"
           : "access_token_only_not_persisted",
@@ -73,7 +85,7 @@ export async function GET(request: Request) {
           encryption_iv: encrypted.iv,
           encryption_tag: encrypted.tag,
           token_expires_at: new Date(Date.now() + tokenSet.expires_in * 1000).toISOString(),
-          scopes: tokenSet.scope.split(" "),
+          scopes: grantedScopes,
         },
         {
           onConflict: "connection_id",

@@ -10,14 +10,15 @@ import { ModeSelector } from "@/components/dashboard/mode-selector";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { PriorityQueue } from "@/components/email/priority-queue";
 import { analyzeInbox, compareTriagedEmail, summarizeInbox } from "@/lib/triage/analyze-inbox";
-import { compactEmailText } from "@/lib/email/clean-email-text";
+import { emailTextToParagraphs } from "@/lib/email/clean-email-text";
 import { mockEmails } from "@/lib/mock/mock-emails";
 
-type InboxSource = "mock" | "gmail";
+type InboxSource = "mock" | "gmail" | "outlook";
 type OpenAIConsentPreference = "accepted" | "declined" | null;
 
 type DashboardClientProps = {
   hasGmailConnection?: boolean;
+  hasOutlookConnection?: boolean;
   initialAIProcessingEnabled?: boolean;
   initialOpenAITriageEnabled?: boolean;
 };
@@ -31,6 +32,7 @@ function getTimeGreeting() {
 
 export function DashboardClient({
   hasGmailConnection = false,
+  hasOutlookConnection = false,
   initialAIProcessingEnabled = false,
   initialOpenAITriageEnabled = false,
 }: DashboardClientProps) {
@@ -154,8 +156,8 @@ export function DashboardClient({
     try {
       let emails = scanSource === "mock" ? mockEmails : activeEmails;
 
-      if (scanSource === "gmail") {
-        emails = await fetchGmailMessagesWithRetry();
+      if (scanSource === "gmail" || scanSource === "outlook") {
+        emails = await fetchProviderMessagesWithRetry(scanSource);
       }
 
       const response = await fetch("/api/triage", {
@@ -249,6 +251,17 @@ export function DashboardClient({
 
         if (!response.ok) {
           throw new Error(payload.error ?? "Unable to archive Gmail message.");
+        }
+      } else if (item.email.provider === "outlook") {
+        const response = await fetch("/api/email-providers/outlook/archive", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ emailId: id }),
+        });
+        const payload = await readJsonResponse(response);
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Unable to archive Outlook message.");
         }
       }
 
@@ -386,7 +399,9 @@ export function DashboardClient({
                 {isScanning
                   ? source === "gmail"
                     ? "Scanning Gmail Inbox"
-                    : "Scanning Mock Inbox"
+                    : source === "outlook"
+                      ? "Scanning Outlook Inbox"
+                      : "Scanning Mock Inbox"
                   : hasRun
                     ? "Run Scan again"
                     : "Run Scan"}
@@ -395,19 +410,23 @@ export function DashboardClient({
           </div>
 
           <div className="liquid-glass rounded-xl border-black/10 bg-white/58 p-2">
-            <div className="relative grid h-10 grid-cols-2 overflow-hidden rounded-lg border border-black/5 bg-[#ede9df]/66 p-1">
+            <div className="relative grid h-10 grid-cols-3 overflow-hidden rounded-lg border border-black/5 bg-[#ede9df]/66 p-1">
               <span
                 className="absolute bottom-1 top-1 rounded-md border border-white/70 bg-[#fffdf7]/92 shadow-lg shadow-black/10 transition-transform duration-300 ease-out"
                 style={{
                   left: "0.25rem",
-                  width: "calc((100% - 0.5rem) / 2)",
-                  transform: `translateX(${source === "gmail" ? 100 : 0}%)`,
+                  width: "calc((100% - 0.5rem) / 3)",
+                  transform: `translateX(${
+                    source === "gmail" ? 100 : source === "outlook" ? 200 : 0
+                  }%)`,
                 }}
               />
-            {(["mock", "gmail"] as const).map((option) => {
+            {(["mock", "gmail", "outlook"] as const).map((option) => {
               const selected = source === option;
               const disabled =
-                controlsLocked || (option === "gmail" && !hasGmailConnection);
+                controlsLocked ||
+                (option === "gmail" && !hasGmailConnection) ||
+                (option === "outlook" && !hasOutlookConnection);
 
               return (
                 <button
@@ -431,7 +450,11 @@ export function DashboardClient({
                         : "text-[#59635f] hover:text-[#141817]"
                     } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
                   >
-                    {option === "mock" ? "Mock Inbox" : "Gmail Inbox"}
+                    {option === "mock"
+                      ? "Mock Inbox"
+                      : option === "gmail"
+                        ? "Gmail Inbox"
+                        : "Outlook Inbox"}
                   </button>
                 );
               })}
@@ -493,6 +516,7 @@ export function DashboardClient({
               onBack={() => setSelectedId(null)}
               onAddTask={addTask}
               onDeleteEmail={deleteEmail}
+              taskIds={taskIds}
               mode={mode}
               onFeedback={saveTriageFeedback}
             />
@@ -728,7 +752,7 @@ function TaskList({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold tracking-normal text-[#141817]">
-            Task list
+            Tasks
           </h2>
           <p className="mt-1 text-sm text-[#4a504d]">
             Saved email follow-ups with editable AI draft space.
@@ -759,7 +783,7 @@ function TaskList({
         <div className="liquid-glass mt-5 rounded-xl border-white/60 bg-[#fffdf7]/36 p-8 text-center shadow-inner ring-1 ring-white/45">
           <p className="font-medium text-[#141817]">No email tasks yet</p>
           <p className="mt-2 text-sm text-[#68716d]">
-            Open a priority email and add it to your task list.
+            Open a priority email and add it to your tasks.
           </p>
         </div>
       ) : selectedTask ? (
@@ -809,9 +833,14 @@ function TaskList({
               <p className="text-xs font-semibold uppercase text-[#68716d]">
                 Original email
               </p>
-              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#33423d]">
-                {compactEmailText(selectedTask.email.body || selectedTask.email.snippet)}
-              </p>
+              <div className="mt-3 space-y-3 text-sm leading-6 text-[#33423d]">
+                {emailTextToParagraphs(
+                  selectedTask.email.body || selectedTask.email.snippet,
+                  18,
+                ).map((paragraph, index) => (
+                  <p key={`${index}-${paragraph.slice(0, 16)}`}>{paragraph}</p>
+                ))}
+              </div>
             </div>
             <div className="rounded-xl border border-black/8 bg-white/62 p-4">
               <div className="flex items-center justify-between gap-3">
@@ -970,7 +999,7 @@ function TaskListRow({
       {isEditingTasks ? (
         <button
           type="button"
-          aria-label={`Remove ${item.email.senderName} from task list`}
+          aria-label={`Remove ${item.email.senderName} from tasks`}
           className="animate-in fade-in zoom-in-95 flex size-9 shrink-0 items-center justify-center rounded-full border border-[#c86a3b]/20 bg-[#fff1e8] text-[#9a4d2c] transition hover:bg-[#ffe5d4]"
           onClick={onRemove}
         >

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createTriageService, LocalTriageService } from "@/lib/ai/triage-service";
+import {
+  createTriageService,
+  LocalTriageService,
+  type TriageService,
+} from "@/lib/ai/triage-service";
 import { compareTriagedEmail, summarizeInbox } from "@/lib/triage/analyze-inbox";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -10,6 +14,7 @@ import {
   persistTriagedInbox,
 } from "@/lib/supabase/triage-persistence";
 import type { EmailMessage } from "@/types/email";
+import type { TriageMode } from "@/types/triage";
 
 const emailSchema = z.object({
   id: z.string(),
@@ -57,12 +62,23 @@ export async function POST(request: Request) {
     const { emails, mode, useOpenAI } = payload.data;
     const admin = createSupabaseAdminClient();
     const service = useOpenAI ? createTriageService() : new LocalTriageService();
+    const localFallback = new LocalTriageService();
     const provider = useOpenAI && process.env.OPENAI_API_KEY ? "openai" : "local";
     const concurrency = provider === "openai" ? getOpenAIConcurrency() : 8;
     const feedbackRules = await getTriageFeedbackRules(admin, user.id, mode);
+    let fallbackCount = 0;
     const items = await mapWithConcurrency(emails, concurrency, async (email) => ({
         email: email as EmailMessage,
-        triage: await service.analyzeEmail(email as EmailMessage, mode),
+        triage: await analyzeWithFallback({
+          email: email as EmailMessage,
+          mode,
+          provider,
+          service,
+          localFallback,
+          onFallback: () => {
+            fallbackCount += 1;
+          },
+        }),
       })).then((triaged) =>
         triaged.map((item) => applyTriageFeedbackRules(item, mode, feedbackRules)),
       );
@@ -77,13 +93,17 @@ export async function POST(request: Request) {
       modelName: provider === "openai" ? process.env.OPENAI_TRIAGE_MODEL ?? "gpt-5.4-mini" : null,
     });
 
-    return NextResponse.json({
-      provider,
-      items: persisted.items,
-      summary: summarizeInbox(persisted.items),
-      taskEmailIds: persisted.taskEmailIds,
-      taskStates: persisted.taskStates,
-    });
+    return NextResponse.json(
+      {
+        provider,
+        items: persisted.items,
+        summary: summarizeInbox(persisted.items),
+        taskEmailIds: persisted.taskEmailIds,
+        taskStates: persisted.taskStates,
+        fallbackCount,
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     return NextResponse.json(
       {
@@ -98,10 +118,37 @@ export async function POST(request: Request) {
 }
 
 function getOpenAIConcurrency() {
-  const parsed = Number(process.env.OPENAI_TRIAGE_CONCURRENCY ?? 2);
+  const parsed = Number(process.env.OPENAI_TRIAGE_CONCURRENCY ?? 3);
 
-  if (!Number.isFinite(parsed)) return 2;
-  return Math.max(1, Math.min(4, Math.floor(parsed)));
+  if (!Number.isFinite(parsed)) return 3;
+  return Math.max(1, Math.min(3, Math.floor(parsed)));
+}
+
+async function analyzeWithFallback({
+  email,
+  mode,
+  provider,
+  service,
+  localFallback,
+  onFallback,
+}: {
+  email: EmailMessage;
+  mode: TriageMode;
+  provider: "openai" | "local";
+  service: TriageService;
+  localFallback: LocalTriageService;
+  onFallback: () => void;
+}) {
+  try {
+    return await service.analyzeEmail(email, mode);
+  } catch (error) {
+    if (provider !== "openai") {
+      throw error;
+    }
+
+    onFallback();
+    return localFallback.analyzeEmail(email, mode);
+  }
 }
 
 async function mapWithConcurrency<T, R>(
