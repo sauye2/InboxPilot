@@ -71,16 +71,25 @@ export function providerMessageId(emailId: string) {
 export async function getPersistedTasks({
   admin,
   userId,
+  provider,
 }: {
   admin: SupabaseClient;
   userId: string;
+  provider?: EmailMessage["provider"];
 }): Promise<PersistedInboxState> {
-  const { data: taskRows, error: taskError } = await admin
+  let taskQuery = admin
     .from("tasks")
     .select("id, email_message_id, status, draft_subject, draft_body, updated_at")
     .eq("user_id", userId)
-    .neq("status", "archived")
-    .order("updated_at", { ascending: false });
+    .neq("status", "archived");
+
+  if (provider) {
+    taskQuery = taskQuery.eq("provider", provider);
+  }
+
+  const { data: taskRows, error: taskError } = await taskQuery.order("updated_at", {
+    ascending: false,
+  });
 
   if (taskError) {
     throw new Error(taskError.message);

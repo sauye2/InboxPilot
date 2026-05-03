@@ -64,9 +64,11 @@ export function DashboardClient({
   const sourceConnected =
     source === "gmail" ? hasGmailConnection : hasOutlookConnection;
 
-  const loadPersistedTasks = useCallback(async () => {
+  const loadPersistedTasks = useCallback(async (taskSource = sourceRef.current) => {
     try {
-      const response = await fetch("/api/tasks", { cache: "no-store" });
+      const response = await fetch(`/api/tasks?provider=${taskSource}`, {
+        cache: "no-store",
+      });
       const payload = await readJsonResponse(response);
 
       if (!response.ok) return;
@@ -211,7 +213,7 @@ export function DashboardClient({
       setActiveEmails(payload.items.map((item: TriagedEmail) => item.email));
       setHasRun(true);
       setSelectedId(null);
-      void loadPersistedTasks();
+      void loadPersistedTasks(scanSource);
     } catch (error) {
       setScanError(error instanceof Error ? error.message : "Scan failed.");
     } finally {
@@ -476,6 +478,10 @@ export function DashboardClient({
                     setOpenAIItems(null);
                     setHasRun(false);
                     setSelectedId(null);
+                    setTaskIds([]);
+                    setTaskStates([]);
+                    setAccountTasks([]);
+                    void loadPersistedTasks(option);
                   }}
                     className={`relative z-10 flex h-full items-center justify-center rounded-md text-sm font-semibold transition-colors duration-300 ${
                       selected
@@ -507,8 +513,6 @@ export function DashboardClient({
               setOpenAIItems(null);
               setSelectedId(null);
               setSelectedFilter("needs_action");
-              setTaskIds([]);
-              setTaskStates([]);
             }}
           />
 
@@ -1158,7 +1162,7 @@ async function fetchProviderMessagesWithRetry(source: "gmail" | "outlook") {
     const payload = await readJsonResponse(response);
 
     if (response.ok) {
-      return payload.messages as EmailMessage[];
+      return normalizeProviderMessages(payload.messages, source);
     }
 
     lastError = payload.error ?? lastError;
@@ -1169,4 +1173,37 @@ async function fetchProviderMessagesWithRetry(source: "gmail" | "outlook") {
   }
 
   throw new Error(lastError);
+}
+
+function normalizeProviderMessages(
+  messages: unknown,
+  source: "gmail" | "outlook",
+): EmailMessage[] {
+  if (!Array.isArray(messages)) return [];
+
+  return messages
+    .map((message, index) => {
+      if (!message || typeof message !== "object") return null;
+      const raw = message as Partial<EmailMessage>;
+      const id = String(raw.id ?? `${source}:message-${index}`);
+      const snippet = String(raw.snippet ?? "");
+      const body = String(raw.body ?? snippet);
+
+      return {
+        id,
+        provider: source,
+        senderName: String(raw.senderName ?? raw.senderEmail ?? "Unknown sender"),
+        senderEmail: String(raw.senderEmail ?? "unknown@example.com"),
+        subject: String(raw.subject ?? "(No subject)"),
+        body,
+        snippet,
+        receivedAt: String(raw.receivedAt ?? new Date().toISOString()),
+        isRead: Boolean(raw.isRead),
+        labels: Array.isArray(raw.labels)
+          ? raw.labels.filter((label): label is string => typeof label === "string")
+          : [],
+        threadId: String(raw.threadId ?? id),
+      } satisfies EmailMessage;
+    })
+    .filter(Boolean) as EmailMessage[];
 }

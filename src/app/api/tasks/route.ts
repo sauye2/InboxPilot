@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -14,7 +15,9 @@ const taskPatchSchema = z.object({
   draftBody: z.string().nullable().optional(),
 });
 
-export async function GET() {
+const providerSchema = z.enum(["gmail", "outlook"]).optional();
+
+export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -25,9 +28,13 @@ export async function GET() {
   }
 
   try {
+    const provider = providerSchema.parse(
+      request.nextUrl.searchParams.get("provider") ?? undefined,
+    );
     const tasks = await getPersistedTasks({
       admin: createSupabaseAdminClient(),
       userId: user.id,
+      provider,
     });
 
     return NextResponse.json(tasks, { headers: { "Cache-Control": "no-store" } });

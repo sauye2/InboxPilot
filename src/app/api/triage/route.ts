@@ -16,18 +16,24 @@ import {
 import type { EmailMessage } from "@/types/email";
 import type { TriageMode } from "@/types/triage";
 
+const nullableString = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((value) => value ?? "");
+
 const emailSchema = z.object({
   id: z.string(),
-  provider: z.enum(["mock", "gmail", "outlook", "yahoo"]),
-  senderName: z.string(),
-  senderEmail: z.string(),
-  subject: z.string(),
-  body: z.string(),
-  snippet: z.string(),
-  receivedAt: z.string(),
-  isRead: z.boolean(),
-  labels: z.array(z.string()),
-  threadId: z.string(),
+  provider: z
+    .enum(["mock", "gmail", "outlook", "yahoo", "microsoft"])
+    .transform((provider) => (provider === "microsoft" ? "outlook" : provider)),
+  senderName: nullableString.transform((value) => value || "Unknown sender"),
+  senderEmail: nullableString.transform((value) => value || "unknown@example.com"),
+  subject: nullableString.transform((value) => value || "(No subject)"),
+  body: nullableString,
+  snippet: nullableString,
+  receivedAt: nullableString.transform((value) => value || new Date().toISOString()),
+  isRead: z.boolean().catch(false),
+  labels: z.array(z.string()).catch([]),
+  threadId: nullableString,
 });
 
 const triageRequestSchema = z.object({
