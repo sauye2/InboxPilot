@@ -76,6 +76,30 @@ describe("analyzeEmail", () => {
     expect(result.deadline).toBe("this Friday");
   });
 
+  it("classifies casual invitations with weekdays as high-priority events", () => {
+    const result = analyzeEmail(
+      {
+        id: "outlook:test-arcade",
+        provider: "outlook",
+        senderName: "Stanley Auyeung",
+        senderEmail: "stanley@example.com",
+        subject: "Arcade",
+        body: "Hey, I'm off this Tuesday. Want to go to the arcade with me?",
+        snippet: "Hey, I'm off this Tuesday. Want to go to the arcade with me?",
+        receivedAt: new Date().toISOString(),
+        isRead: false,
+        labels: ["UNREAD"],
+        threadId: "thread-arcade",
+      },
+      "life_admin",
+    );
+
+    expect(result.priority).toBe("high");
+    expect(result.category).toBe("Events");
+    expect(result.requiresAction).toBe(true);
+    expect(result.deadline).toBe("Tuesday");
+  });
+
   it("keeps deadline-bearing emails at least medium priority", () => {
     const result = analyzeEmail(
       {

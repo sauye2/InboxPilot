@@ -299,51 +299,55 @@ function EmailFocusView({
       </div>
 
       <div className="mt-5 rounded-xl border border-black/10 bg-[#fffdf7]/78 p-5">
-        <div className="liquid-glass relative rounded-xl border-white/70 bg-white/38 p-4 pb-16 shadow-lg shadow-black/10 ring-1 ring-white/45">
-          <p className="text-xs font-medium uppercase text-[#68716d]">
-            Email detail
-          </p>
-          <h3 className="mt-2 text-2xl font-semibold leading-tight text-[#141817]">
-            {email.subject}
-          </h3>
-          <p className="mt-2 text-sm text-[#68716d]">
-            {email.senderName} &lt;{email.senderEmail}&gt;
-          </p>
+        <div className="liquid-glass flex min-h-[280px] flex-col rounded-xl border-white/70 bg-white/38 p-4 shadow-lg shadow-black/10 ring-1 ring-white/45">
+          <div>
+            <p className="text-xs font-medium uppercase text-[#68716d]">
+              Email detail
+            </p>
+            <h3 className="mt-2 text-2xl font-semibold leading-tight text-[#141817]">
+              {email.subject}
+            </h3>
+            <p className="mt-2 text-sm text-[#68716d]">
+              {email.senderName} &lt;{email.senderEmail}&gt;
+            </p>
 
-          <div className="mt-4 flex flex-wrap gap-2 pr-36">
-            <CategoryBadge category={triage.category} />
-            {triage.deadline ? <DeadlineBadge deadline={triage.deadline} /> : null}
-          </div>
-          <FeedbackControls
-            emailId={email.id}
-            category={triage.category}
-            priority={triage.priority}
-            categories={categories}
-            onFeedback={onFeedback}
-            className="mt-4 pr-36"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={taskAdded}
-            className={cn(
-              "absolute bottom-4 right-4 h-9 rounded-full border-[#d9e8e4] bg-[#eef8f5] px-3 text-xs font-semibold text-[#0e6f68] transition-all duration-300 hover:bg-[#dff3eb]",
-              taskAdded && "pointer-events-none opacity-55",
-            )}
-            onClick={() => {
-              onAddTask(email.id);
-              setAddedTaskIds((current) => new Set(current).add(email.id));
-            }}
-          >
-            <CheckCircle2
-              className={cn(
-                "size-3.5 transition-transform duration-300",
-                taskAdded ? "scale-110" : "hidden",
-              )}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <CategoryBadge category={triage.category} />
+              {triage.deadline ? <DeadlineBadge deadline={triage.deadline} /> : null}
+            </div>
+            <FeedbackControls
+              emailId={email.id}
+              category={triage.category}
+              priority={triage.priority}
+              categories={categories}
+              onFeedback={onFeedback}
+              className="mt-4"
             />
-            {!taskAdded ? <ListPlus className="size-3.5" /> : null}
-            {taskAdded ? "Added to Tasks" : "Add to Tasks"}
-          </Button>
+          </div>
+          <div className="mt-auto flex justify-end pt-6">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={taskAdded}
+              className={cn(
+                "h-9 rounded-full border-[#d9e8e4] bg-[#eef8f5] px-3 text-xs font-semibold text-[#0e6f68] transition-all duration-300 hover:bg-[#dff3eb]",
+                taskAdded && "pointer-events-none opacity-55",
+              )}
+              onClick={() => {
+                onAddTask(email.id);
+                setAddedTaskIds((current) => new Set(current).add(email.id));
+              }}
+            >
+              <CheckCircle2
+                className={cn(
+                  "size-3.5 transition-transform duration-300",
+                  taskAdded ? "scale-110" : "hidden",
+                )}
+              />
+              {!taskAdded ? <ListPlus className="size-3.5" /> : null}
+              {taskAdded ? "Added to Tasks" : "Add to Tasks"}
+            </Button>
+          </div>
         </div>
 
         <div className="mt-6 grid gap-5">

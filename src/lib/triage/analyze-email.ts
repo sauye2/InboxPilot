@@ -39,10 +39,11 @@ export function analyzeEmail(
     score -= relevantToMode ? 1 : 4;
   }
 
+  const eventReplyRequest = mode === "life_admin" && isPersonalInvitation(normalizedText(text));
   const requiresAction =
     relevantToMode &&
     !passiveJobAlert &&
-    actionHits.length > 0 &&
+    (actionHits.length > 0 || eventReplyRequest) &&
     !text.includes("no action is required");
   const effectiveDeadline = normalizeDeadlineForTriage(text, mode, category, deadline);
   score += effectiveDeadline ? 2 : 0;
@@ -109,6 +110,10 @@ export function refineCategoryForMode(text: string, mode: TriageMode, category: 
     return "Inbox Noise";
   }
 
+  if (isRealEvent(normalized)) {
+    return "Events";
+  }
+
   if (category === "Purchases") {
     return isActualPurchase(normalized) ? "Purchases" : "Inbox Noise";
   }
@@ -162,7 +167,7 @@ function isWorkText(text: string) {
 
 function isLifeText(text: string) {
   return [
-    /\b(bank|card|transaction|payment|bill|invoice|repayment|loan|debt|credit|collection|security|password|sign-in|appointment|clinic|medical|doctor|dentist|order|delivery|package|reservation|event|ticket|dinner|invite|invitation|rsvp|travel|flight|hotel|form|forms|document|sign|paperwork)\b/,
+    /\b(bank|card|transaction|payment|bill|invoice|repayment|loan|debt|credit|collection|security|password|sign-in|appointment|clinic|medical|doctor|dentist|order|delivery|package|reservation|event|ticket|dinner|lunch|arcade|invite|invitation|rsvp|travel|flight|hotel|form|forms|document|sign|paperwork)\b/,
     /\b(are you available|let me know|plans|this friday|tomorrow|today)\b/,
   ].some((pattern) => pattern.test(text));
 }
@@ -199,9 +204,18 @@ function isPersonalFinance(text: string) {
 function isRealEvent(text: string) {
   if (isPromotionalNoise(text)) return false;
   return [
-    /\b(dinner|lunch|plans|rsvp|invite|invitation|are you available|let me know|reservation|appointment)\b/,
+    /\b(dinner|lunch|arcade|plans|rsvp|invite|invitation|are you available|let me know|want to go|go to|with me|reservation|appointment)\b/,
     /\b(event|ticket|concert|show|game|flight|hotel)\b.*\b(confirmed|confirmation|upcoming|reminder|starts|scheduled|reservation)\b/,
   ].some((pattern) => pattern.test(text));
+}
+
+function isPersonalInvitation(text: string) {
+  return (
+    isRealEvent(text) &&
+    /\b(want to|would you like|do you want|are you available|free|join me|with me|let me know|rsvp)\b/.test(
+      text,
+    )
+  );
 }
 
 function isPersonalPurchase(text: string) {
@@ -228,6 +242,14 @@ function enforceDeadlinePriority(
 ) {
   if (!deadline) return priority;
   if (priority === "low") return "medium";
+  if (
+    requiresAction &&
+    /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|today|tomorrow|this)\b/i.test(
+      deadline,
+    )
+  ) {
+    return "high";
+  }
   if (
     requiresAction &&
     /\b(today|tomorrow|this|friday|thursday|wednesday|tuesday|monday|saturday|sunday|asap|soon)\b/i.test(
@@ -354,7 +376,7 @@ function buildSuggestedNextAction(
   }
 
   if (category === "Events" && deadline) {
-    return `Respond with your availability for ${deadline}.`;
+    return `Reply about the event by ${deadline}.`;
   }
 
   if (deadline) {
@@ -362,4 +384,8 @@ function buildSuggestedNextAction(
   }
 
   return `Handle the ${category.toLowerCase()} request.`;
+}
+
+function normalizedText(text: string) {
+  return text.toLowerCase();
 }
