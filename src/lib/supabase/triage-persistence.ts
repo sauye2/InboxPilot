@@ -77,15 +77,11 @@ export async function getPersistedTasks({
   userId: string;
   provider?: EmailMessage["provider"];
 }): Promise<PersistedInboxState> {
-  let taskQuery = admin
+  const taskQuery = admin
     .from("tasks")
     .select("id, email_message_id, status, draft_subject, draft_body, updated_at")
     .eq("user_id", userId)
     .neq("status", "archived");
-
-  if (provider) {
-    taskQuery = taskQuery.eq("provider", provider);
-  }
 
   const { data: taskRows, error: taskError } = await taskQuery.order("updated_at", {
     ascending: false,
@@ -141,6 +137,7 @@ export async function getPersistedTasks({
       if (!task.email_message_id) return null;
       const message = messageById.get(task.email_message_id);
       if (!message) return null;
+      if (provider && message.provider !== provider) return null;
       const triage = triageByMessageId.get(task.email_message_id);
       const emailId = message.provider_message_id;
       const fallbackText = message.snippet ?? message.subject ?? "Review this saved email.";
@@ -185,6 +182,7 @@ export async function getPersistedTasks({
         if (!task.email_message_id) return null;
         const message = messageById.get(task.email_message_id);
         if (!message) return null;
+        if (provider && message.provider !== provider) return null;
         return {
           emailId: message.provider_message_id,
           status: task.status,
@@ -798,14 +796,17 @@ async function syncTaskStateForMessages({
       !task.last_outbound_at || new Date(newest.email.receivedAt) > new Date(task.last_outbound_at);
 
     if (newerThanOutbound && newest.triage.requiresAction) {
+      const newestMessageId = messageByProviderId.get(providerMessageId(newest.email.id)) ?? null;
       await admin
         .from("tasks")
         .update({
+          email_message_id: newestMessageId,
           status: "to_reply",
           last_inbound_at: newest.email.receivedAt,
           updated_at: new Date().toISOString(),
         })
         .eq("id", task.id);
+      task.email_message_id = newestMessageId;
       task.status = "to_reply";
     }
   }

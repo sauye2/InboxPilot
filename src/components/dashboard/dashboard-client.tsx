@@ -64,7 +64,8 @@ export function DashboardClient({
   const sourceConnected =
     source === "gmail" ? hasGmailConnection : hasOutlookConnection;
 
-  const loadPersistedTasks = useCallback(async (taskSource = sourceRef.current) => {
+  const loadPersistedTasks = useCallback(
+    async (taskSource = sourceRef.current, preferredItems: TriagedEmail[] = []) => {
     try {
       const response = await fetch(`/api/tasks?provider=${taskSource}`, {
         cache: "no-store",
@@ -73,13 +74,22 @@ export function DashboardClient({
 
       if (!response.ok) return;
 
-      setAccountTasks(payload.items ?? []);
+      const preferredById = new Map(
+        preferredItems.map((item) => [item.email.id, item]),
+      );
+      setAccountTasks(
+        ((payload.items ?? []) as TriagedEmail[]).map(
+          (item) => preferredById.get(item.email.id) ?? item,
+        ),
+      );
       setTaskIds(payload.taskEmailIds ?? []);
       setTaskStates(payload.taskStates ?? []);
     } catch {
       // Task hydration should not block scanning or dashboard usage.
     }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -192,7 +202,9 @@ export function DashboardClient({
       ) {
         throw new Error(`Connect ${scanSource === "gmail" ? "Gmail" : "Outlook"} before scanning.`);
       }
-      const emails = await fetchProviderMessagesWithRetry(scanSource);
+      const emails = collapseThreadMessages(
+        await fetchProviderMessagesWithRetry(scanSource),
+      );
 
       const response = await fetch("/api/triage", {
         method: "POST",
@@ -211,9 +223,16 @@ export function DashboardClient({
 
       setOpenAIItems(payload.items);
       setActiveEmails(payload.items.map((item: TriagedEmail) => item.email));
+      setTaskIds(payload.taskEmailIds ?? []);
+      setTaskStates(payload.taskStates ?? []);
+      setAccountTasks(
+        (payload.items as TriagedEmail[]).filter((item) =>
+          (payload.taskEmailIds ?? []).includes(item.email.id),
+        ),
+      );
       setHasRun(true);
       setSelectedId(null);
-      void loadPersistedTasks(scanSource);
+      void loadPersistedTasks(scanSource, payload.items);
     } catch (error) {
       setScanError(error instanceof Error ? error.message : "Scan failed.");
     } finally {
@@ -1206,4 +1225,50 @@ function normalizeProviderMessages(
       } satisfies EmailMessage;
     })
     .filter(Boolean) as EmailMessage[];
+}
+
+function collapseThreadMessages(messages: EmailMessage[]) {
+  const groups = new Map<string, EmailMessage[]>();
+
+  for (const message of messages) {
+    const key = `${message.provider}:${message.threadId || message.id}`;
+    groups.set(key, [...(groups.get(key) ?? []), message]);
+  }
+
+  return [...groups.values()].map((threadMessages) => {
+    if (threadMessages.length === 1) return threadMessages[0];
+
+    const sorted = [...threadMessages].sort(
+      (a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime(),
+    );
+    const newest = sorted[0];
+    const canonicalSubject = normalizeThreadSubject(newest.subject);
+    const body = sorted
+      .map((message, index) => {
+        const prefix = index === 0 ? "Latest message" : "Earlier message";
+        const timestamp = new Intl.DateTimeFormat("en", {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        }).format(new Date(message.receivedAt));
+
+        return `${prefix} from ${message.senderName} on ${timestamp}\n${message.body || message.snippet}`;
+      })
+      .join("\n\n---\n\n");
+
+    return {
+      ...newest,
+      subject: `Re: ${canonicalSubject}`,
+      body,
+      snippet: newest.snippet || newest.body,
+      labels: [...new Set(sorted.flatMap((message) => message.labels))],
+    } satisfies EmailMessage;
+  });
+}
+
+function normalizeThreadSubject(subject: string) {
+  return (subject || "(No subject)")
+    .replace(/^(\s*(re|fw|fwd):\s*)+/i, "")
+    .trim();
 }

@@ -310,11 +310,9 @@ function EmailFocusView({
             {email.senderName} &lt;{email.senderEmail}&gt;
           </p>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2 pr-36">
             <CategoryBadge category={triage.category} />
-            {triage.deadline ? (
-              <DeadlineBadge deadline={triage.deadline} />
-            ) : null}
+            {triage.deadline ? <DeadlineBadge deadline={triage.deadline} /> : null}
           </div>
           <FeedbackControls
             emailId={email.id}
@@ -322,7 +320,7 @@ function EmailFocusView({
             priority={triage.priority}
             categories={categories}
             onFeedback={onFeedback}
-            className="mt-4"
+            className="mt-4 pr-36"
           />
           <Button
             variant="outline"
@@ -358,7 +356,16 @@ function EmailFocusView({
               {originalEmailParagraphs.length > 0 ? (
                 <div className="space-y-3">
                   {originalEmailParagraphs.map((paragraph, index) => (
-                    <p key={`${index}-${paragraph.slice(0, 16)}`}>
+                    <p
+                      key={`${index}-${paragraph.slice(0, 16)}`}
+                      className={
+                        paragraph.startsWith("Earlier message")
+                          ? "rounded-md bg-[#f3eefc] px-3 py-2 text-[#5b5170]"
+                          : paragraph.startsWith("Latest message")
+                            ? "font-semibold text-[#25332f]"
+                            : undefined
+                      }
+                    >
                       {paragraph}
                     </p>
                   ))}
