@@ -576,11 +576,15 @@ export async function updateTaskForEmail({
     throw new Error("Run Scan before updating this task.");
   }
 
-  const patch: Record<string, string | null> = {};
-  patch.provider = persisted.email.provider;
-  patch.provider_message_id = providerMessageId(persisted.email.id);
-  patch.provider_thread_id = persisted.email.threadId;
-  patch.last_inbound_at = persisted.email.receivedAt;
+  const patch: Record<string, string | null> = {
+    user_id: userId,
+    email_message_id: persisted.dbId,
+    title: persisted.email.subject,
+    provider: persisted.email.provider,
+    provider_message_id: providerMessageId(persisted.email.id),
+    provider_thread_id: persisted.email.threadId,
+    last_inbound_at: persisted.email.receivedAt,
+  };
   if (status) patch.status = status;
   if (draftSubject !== undefined) patch.draft_subject = draftSubject;
   if (draftBody !== undefined) {
@@ -591,9 +595,7 @@ export async function updateTaskForEmail({
 
   const { error } = await admin
     .from("tasks")
-    .update(patch)
-    .eq("user_id", userId)
-    .eq("email_message_id", persisted.dbId);
+    .upsert(patch, { onConflict: "user_id,email_message_id" });
 
   if (error) {
     throw new Error(error.message);

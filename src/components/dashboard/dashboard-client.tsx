@@ -73,6 +73,7 @@ export function DashboardClient({
       const payload = await readJsonResponse(response);
 
       if (!response.ok) return;
+      if (sourceRef.current !== taskSource) return;
 
       const preferredById = new Map(
         preferredItems.map((item) => [item.email.id, item]),
@@ -281,7 +282,20 @@ export function DashboardClient({
         ? current
         : [...current, { emailId: id, status: "to_reply", draftSubject: null, draftBody: null }],
     );
-    void saveReviewAction(id, "task_created");
+    void createPersistedTask(id);
+  }
+
+  async function createPersistedTask(emailId: string) {
+    const response = await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ emailId, status: "to_reply" }),
+    });
+    const payload = await readJsonResponse(response);
+
+    if (!response.ok) {
+      setScanError(payload.error ?? "Unable to save task.");
+    }
   }
 
   async function deleteEmail(id: string) {

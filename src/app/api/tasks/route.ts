@@ -49,6 +49,47 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function POST(request: Request) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Sign in before creating tasks." }, { status: 401 });
+  }
+
+  const payload = taskPatchSchema.safeParse(await request.json());
+
+  if (!payload.success) {
+    return NextResponse.json(
+      { error: "Invalid task request.", details: payload.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  try {
+    await updateTaskForEmail({
+      admin: createSupabaseAdminClient(),
+      userId: user.id,
+      emailId: payload.data.emailId,
+      status: payload.data.status ?? "to_reply",
+      draftSubject: payload.data.draftSubject,
+      draftBody: payload.data.draftBody,
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Unable to create task.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
 export async function PATCH(request: Request) {
   const supabase = await createSupabaseServerClient();
   const {
