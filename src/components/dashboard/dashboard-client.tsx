@@ -295,7 +295,10 @@ export function DashboardClient({
 
     if (!response.ok) {
       setScanError(payload.error ?? "Unable to save task.");
+      return;
     }
+
+    setScanError(null);
   }
 
   async function deleteEmail(id: string) {

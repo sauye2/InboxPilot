@@ -1,11 +1,11 @@
-import { CheckCircle2 } from "lucide-react";
 import { emailTextToParagraphs } from "@/lib/email/clean-email-text";
 import { cn } from "@/lib/utils";
 
 type ThreadMessageBlock = {
   id: string;
   kind: "latest" | "earlier";
-  heading: string;
+  sender: string;
+  timestamp: string;
   paragraphs: string[];
 };
 
@@ -27,40 +27,29 @@ export function ThreadBodyView({
   return (
     <div
       className={cn(
-        "overflow-auto rounded-lg bg-[#f1f0ea] p-4 text-sm leading-6 text-[#33423d]",
+        "overflow-auto rounded-lg bg-[#f1f0ea] p-4 text-sm leading-7 text-[#25332f]",
         maxHeightClassName,
         className,
       )}
     >
       {blocks.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {blocks.map((block) => (
-            <article
+            <div
               key={block.id}
               className={cn(
-                "rounded-lg px-3 py-2.5",
-                block.kind === "earlier"
-                  ? "bg-[#f4effc]/85 text-[#5f5574]"
-                  : "bg-white/35 text-[#25332f]",
+                "space-y-2",
+                block.kind === "earlier" && "text-[#6c5485]",
               )}
             >
-              <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.04em]">
-                {block.kind === "latest" ? (
-                  <CheckCircle2 className="size-3.5 text-[#00887f]" />
-                ) : null}
-                <span>
-                  {block.heading ||
-                    (block.kind === "latest" ? "Latest message" : "Earlier message")}
-                </span>
-              </div>
-              <div className="space-y-2.5">
-                {block.paragraphs.map((paragraph, index) => (
-                  <p key={`${block.id}-${index}-${paragraph.slice(0, 18)}`}>
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
-            </article>
+              {block.paragraphs.map((paragraph, index) => (
+                <p key={`${block.id}-${index}-${paragraph.slice(0, 18)}`}>
+                  {block.kind === "earlier" && index === 0
+                    ? `On ${block.timestamp}, ${block.sender}: ${paragraph}`
+                    : paragraph}
+                </p>
+              ))}
+            </div>
           ))}
         </div>
       ) : (
@@ -92,7 +81,8 @@ function parseThreadMessageBlocks(text: string): ThreadMessageBlock[] {
     {
       id: "single-message",
       kind: "latest",
-      heading: "Message",
+      sender: "",
+      timestamp: "",
       paragraphs: emailTextToParagraphs(cleaned, 18),
     },
   ];
@@ -106,11 +96,6 @@ function parseMarkedThreadBlock(block: string, index: number): ThreadMessageBloc
   const headingMatch = normalized.match(
     /^(Latest message|Earlier message) from\s+(.+?)\s+on\s+([A-Z][a-z]{2}\s+\d{1,2},\s+\d{1,2}:\d{2}\s+[AP]M)\s*/i,
   );
-  const heading = headingMatch
-    ? `${headingMatch[1]} from ${headingMatch[2]} · ${headingMatch[3]}`
-    : kind === "latest"
-      ? "Latest message"
-      : "Earlier message";
   const body = headingMatch
     ? normalized.slice(headingMatch[0].length).trim()
     : normalized.replace(/^(Latest message|Earlier message) from\s+/i, "").trim();
@@ -118,7 +103,17 @@ function parseMarkedThreadBlock(block: string, index: number): ThreadMessageBloc
   return {
     id: `${kind}-${index}`,
     kind,
-    heading,
-    paragraphs: emailTextToParagraphs(body, 10),
+    sender: headingMatch?.[2]?.trim() || "sender",
+    timestamp: headingMatch?.[3]?.trim() || "earlier",
+    paragraphs: emailTextToParagraphs(stripEmbeddedQuotedThreadTail(body), 10),
   };
+}
+
+function stripEmbeddedQuotedThreadTail(value: string) {
+  return value
+    .replace(
+      /\s+On\s+[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4},\s+at\s+\d{1,2}:\d{2}(?:\s|\u202f)?[AP]M[\s\S]*$/i,
+      "",
+    )
+    .trim();
 }

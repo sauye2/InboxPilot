@@ -50,6 +50,17 @@ type PersistedEmailRow = {
   labels: string[] | null;
 };
 
+type TaskSaveValues = {
+  triageResultId?: string | null;
+  title?: string | null;
+  status?: TaskStatus;
+  dueAt?: string | null;
+  draftSubject?: string | null;
+  draftBody?: string | null;
+  draftUpdatedAt?: string | null;
+  lastOutboundAt?: string | null;
+};
+
 type PersistedTriageRow = {
   email_message_id: string | null;
   priority: PriorityLevel;
@@ -532,25 +543,17 @@ export async function upsertTaskForEmail({
     .limit(1)
     .maybeSingle();
 
-  const { error } = await admin.from("tasks").upsert(
-    {
-      user_id: userId,
-      email_message_id: persisted.dbId,
-      triage_result_id: (triage?.id as string | undefined) ?? null,
+  await saveTaskForPersistedEmail({
+    admin,
+    userId,
+    persisted,
+    values: {
+      triageResultId: (triage?.id as string | undefined) ?? null,
       title: (triage?.suggested_next_action as string | undefined) ?? persisted.email.subject,
       status,
-      due_at: (triage?.deadline_at as string | null | undefined) ?? null,
-      provider: persisted.email.provider,
-      provider_message_id: providerMessageId(persisted.email.id),
-      provider_thread_id: persisted.email.threadId,
-      last_inbound_at: persisted.email.receivedAt,
+      dueAt: (triage?.deadline_at as string | null | undefined) ?? null,
     },
-    { onConflict: "user_id,email_message_id" },
-  );
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  });
 }
 
 export async function updateTaskForEmail({
@@ -576,30 +579,124 @@ export async function updateTaskForEmail({
     throw new Error("Run Scan before updating this task.");
   }
 
-  const patch: Record<string, string | null> = {
+  await saveTaskForPersistedEmail({
+    admin,
+    userId,
+    persisted,
+    values: {
+      title: persisted.email.subject,
+      status,
+      draftSubject,
+      draftBody,
+      draftUpdatedAt: draftBody !== undefined ? new Date().toISOString() : undefined,
+      lastOutboundAt,
+    },
+  });
+}
+
+async function saveTaskForPersistedEmail({
+  admin,
+  userId,
+  persisted,
+  values,
+}: {
+  admin: SupabaseClient;
+  userId: string;
+  persisted: NonNullable<Awaited<ReturnType<typeof findPersistedEmailMessage>>>;
+  values: TaskSaveValues;
+}) {
+  const now = new Date().toISOString();
+  const base = {
     user_id: userId,
     email_message_id: persisted.dbId,
-    title: persisted.email.subject,
+    title: values.title ?? persisted.email.subject,
     provider: persisted.email.provider,
     provider_message_id: providerMessageId(persisted.email.id),
     provider_thread_id: persisted.email.threadId,
     last_inbound_at: persisted.email.receivedAt,
+    updated_at: now,
   };
-  if (status) patch.status = status;
-  if (draftSubject !== undefined) patch.draft_subject = draftSubject;
-  if (draftBody !== undefined) {
-    patch.draft_body = draftBody;
-    patch.draft_updated_at = new Date().toISOString();
-  }
-  if (lastOutboundAt !== undefined) patch.last_outbound_at = lastOutboundAt;
 
-  const { error } = await admin
-    .from("tasks")
-    .upsert(patch, { onConflict: "user_id,email_message_id" });
+  const optionalPatch: Record<string, string | null> = {};
+  if (values.triageResultId !== undefined) optionalPatch.triage_result_id = values.triageResultId;
+  if (values.dueAt !== undefined) optionalPatch.due_at = values.dueAt;
+  if (values.draftSubject !== undefined) optionalPatch.draft_subject = values.draftSubject;
+  if (values.draftBody !== undefined) optionalPatch.draft_body = values.draftBody;
+  if (values.draftUpdatedAt !== undefined) optionalPatch.draft_updated_at = values.draftUpdatedAt;
+  if (values.lastOutboundAt !== undefined) optionalPatch.last_outbound_at = values.lastOutboundAt;
+
+  const existing = await findExistingTaskForPersistedEmail(admin, userId, persisted);
+
+  if (existing?.id) {
+    const updatePayload: Record<string, string | null> = {
+      ...base,
+      ...optionalPatch,
+    };
+    if (values.status !== undefined) updatePayload.status = values.status;
+
+    const { error } = await admin
+      .from("tasks")
+      .update(updatePayload)
+      .eq("id", existing.id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return;
+  }
+
+  const insertPayload: Record<string, string | null> = {
+    ...base,
+    ...optionalPatch,
+    status: values.status ?? "to_reply",
+  };
+
+  const { error } = await admin.from("tasks").insert(insertPayload);
 
   if (error) {
     throw new Error(error.message);
   }
+}
+
+async function findExistingTaskForPersistedEmail(
+  admin: SupabaseClient,
+  userId: string,
+  persisted: NonNullable<Awaited<ReturnType<typeof findPersistedEmailMessage>>>,
+) {
+  const { data: exactTask, error: exactError } = await admin
+    .from("tasks")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("email_message_id", persisted.dbId)
+    .maybeSingle();
+
+  if (exactError) {
+    throw new Error(exactError.message);
+  }
+
+  if (exactTask) {
+    return exactTask as { id: string };
+  }
+
+  if (!persisted.email.threadId) return null;
+
+  const { data: threadTask, error: threadError } = await admin
+    .from("tasks")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("provider", persisted.email.provider)
+    .eq("provider_thread_id", persisted.email.threadId)
+    .neq("status", "archived")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (threadError) {
+    throw new Error(threadError.message);
+  }
+
+  return (threadTask as { id: string } | null) ?? null;
 }
 
 export async function createTriageFeedbackRule({
