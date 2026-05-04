@@ -31,8 +31,8 @@ export async function SiteHeader() {
           <Image
             src="/brand/inboxpilot-horizontal-dark.svg"
             alt="InboxPilot"
-            width={210}
-            height={60}
+            width={224}
+            height={76}
             className="h-11 w-auto drop-shadow-sm sm:h-12"
             priority
           />
