@@ -1,0 +1,100 @@
+<svg width="1600" height="1100" viewBox="0 0 1600 1100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="charcoal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#17201F"/>
+      <stop offset="1" stop-color="#091011"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#78D8C9"/>
+      <stop offset="1" stop-color="#078A82"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFDF7"/>
+      <stop offset="1" stop-color="#E8E4D8"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#091011" flood-opacity="0.18"/>
+    </filter>
+    <style>
+      .label { font: 600 22px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #46504D; letter-spacing: .02em; }
+      .wordmark { font: 750 86px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #111918; letter-spacing: -0.04em; }
+      .caption { font: 500 18px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #68716D; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1100" rx="44" fill="#F6F3EC"/>
+  <circle cx="240" cy="220" r="190" stroke="#BFE7DF" stroke-width="2" opacity="0.5"/>
+  <circle cx="1360" cy="840" r="240" stroke="#E1CBB8" stroke-width="2" opacity="0.45"/>
+
+  <text x="96" y="108" class="label">INBOXPILOT LOGO CONCEPT</text>
+  <text x="96" y="142" class="caption">Envelope + paper-plane mark for website, favicon, and OAuth branding.</text>
+
+  <!-- Icon-only on dark tile -->
+  <g transform="translate(136 232)" filter="url(#softShadow)">
+    <text x="0" y="-40" class="label">Icon-only</text>
+    <rect width="360" height="360" rx="78" fill="url(#charcoal)"/>
+    <g transform="translate(56 46)">
+      <rect x="12" y="70" width="224" height="136" rx="26" fill="#DFF4EE" opacity="0.09"/>
+      <path d="M25 86H223C229.627 86 235 91.373 235 98V194C235 200.627 229.627 206 223 206H25C18.373 206 13 200.627 13 194V98C13 91.373 18.373 86 25 86Z" stroke="url(#teal)" stroke-width="12" stroke-linejoin="round"/>
+      <path d="M26 98L118 158C122.008 160.613 127.16 160.561 131.115 157.868L222 96" stroke="url(#teal)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M41 103L123 157L207 102" stroke="#F6F2E8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.18"/>
+      <text x="66" y="190" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui" font-size="28" font-weight="720" letter-spacing="-1.2" fill="#FFFDF7">Inbox</text>
+      <text x="184" y="190" text-anchor="middle" font-family="Inter, ui-sans-serif, system-ui" font-size="28" font-weight="720" letter-spacing="-1.2" fill="#FFFDF7">Pilot</text>
+      <path d="M63 58L222 30C232.797 28.099 240.744 40.071 234.75 49.25L126.5 215.25C120.472 224.494 106.2 219.463 107.225 208.478L115.25 122.5L63 58Z" fill="url(#paper)"/>
+      <path d="M63 58L115.25 122.5L222 30L63 58Z" fill="#FFFFFF"/>
+      <path d="M115.25 122.5L234 39L126.5 215.25L115.25 122.5Z" fill="#DAD5C9"/>
+      <path d="M63 58L115.25 122.5L91.5 174.5" stroke="#17201F" stroke-opacity="0.08" stroke-width="5" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <!-- Horizontal logo -->
+  <g transform="translate(608 254)">
+    <text x="0" y="-62" class="label">Horizontal wordmark</text>
+    <rect x="-40" y="-20" width="820" height="230" rx="42" fill="#FFFDF7" stroke="#E7E0D4"/>
+    <g transform="translate(0 24) scale(.42)">
+      <rect width="360" height="360" rx="78" fill="url(#charcoal)"/>
+      <g transform="translate(56 46)">
+        <rect x="12" y="70" width="224" height="136" rx="26" fill="#DFF4EE" opacity="0.09"/>
+        <path d="M25 86H223C229.627 86 235 91.373 235 98V194C235 200.627 229.627 206 223 206H25C18.373 206 13 200.627 13 194V98C13 91.373 18.373 86 25 86Z" stroke="url(#teal)" stroke-width="12" stroke-linejoin="round"/>
+        <path d="M26 98L118 158C122.008 160.613 127.16 160.561 131.115 157.868L222 96" stroke="url(#teal)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M63 58L222 30C232.797 28.099 240.744 40.071 234.75 49.25L126.5 215.25C120.472 224.494 106.2 219.463 107.225 208.478L115.25 122.5L63 58Z" fill="url(#paper)"/>
+        <path d="M63 58L115.25 122.5L222 30L63 58Z" fill="#FFFFFF"/>
+        <path d="M115.25 122.5L234 39L126.5 215.25L115.25 122.5Z" fill="#DAD5C9"/>
+      </g>
+    </g>
+    <text x="186" y="120" class="wordmark">InboxPilot</text>
+  </g>
+
+  <!-- Dark and light application variants -->
+  <g transform="translate(132 720)">
+    <text x="0" y="-38" class="label">Dark background</text>
+    <rect width="560" height="190" rx="38" fill="url(#charcoal)"/>
+    <g transform="translate(44 37) scale(.32)">
+      <rect width="360" height="360" rx="78" fill="#F6F2E8" opacity="0.06"/>
+      <g transform="translate(56 46)">
+        <path d="M25 86H223C229.627 86 235 91.373 235 98V194C235 200.627 229.627 206 223 206H25C18.373 206 13 200.627 13 194V98C13 91.373 18.373 86 25 86Z" stroke="url(#teal)" stroke-width="12" stroke-linejoin="round"/>
+        <path d="M26 98L118 158C122.008 160.613 127.16 160.561 131.115 157.868L222 96" stroke="url(#teal)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M63 58L222 30C232.797 28.099 240.744 40.071 234.75 49.25L126.5 215.25C120.472 224.494 106.2 219.463 107.225 208.478L115.25 122.5L63 58Z" fill="url(#paper)"/>
+        <path d="M63 58L115.25 122.5L222 30L63 58Z" fill="#FFFFFF"/>
+        <path d="M115.25 122.5L234 39L126.5 215.25L115.25 122.5Z" fill="#DAD5C9"/>
+      </g>
+    </g>
+    <text x="170" y="114" font-family="Inter, ui-sans-serif, system-ui" font-size="58" font-weight="750" letter-spacing="-2" fill="#FFFDF7">InboxPilot</text>
+  </g>
+
+  <g transform="translate(856 720)">
+    <text x="0" y="-38" class="label">Light background</text>
+    <rect width="560" height="190" rx="38" fill="#FFFDF7" stroke="#E7E0D4"/>
+    <g transform="translate(44 37) scale(.32)">
+      <rect width="360" height="360" rx="78" fill="url(#charcoal)"/>
+      <g transform="translate(56 46)">
+        <path d="M25 86H223C229.627 86 235 91.373 235 98V194C235 200.627 229.627 206 223 206H25C18.373 206 13 200.627 13 194V98C13 91.373 18.373 86 25 86Z" stroke="url(#teal)" stroke-width="12" stroke-linejoin="round"/>
+        <path d="M26 98L118 158C122.008 160.613 127.16 160.561 131.115 157.868L222 96" stroke="url(#teal)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M63 58L222 30C232.797 28.099 240.744 40.071 234.75 49.25L126.5 215.25C120.472 224.494 106.2 219.463 107.225 208.478L115.25 122.5L63 58Z" fill="url(#paper)"/>
+        <path d="M63 58L115.25 122.5L222 30L63 58Z" fill="#FFFFFF"/>
+        <path d="M115.25 122.5L234 39L126.5 215.25L115.25 122.5Z" fill="#DAD5C9"/>
+      </g>
+    </g>
+    <text x="170" y="114" font-family="Inter, ui-sans-serif, system-ui" font-size="58" font-weight="750" letter-spacing="-2" fill="#111918">InboxPilot</text>
+  </g>
+</svg>

@@ -1,0 +1,32 @@
+<svg width="420" height="120" viewBox="0 0 420 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="charcoal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#17201F"/>
+      <stop offset="1" stop-color="#091011"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#202B29"/>
+      <stop offset="1" stop-color="#151E1D"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#78D8C9"/>
+      <stop offset="1" stop-color="#078A82"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFDF7"/>
+      <stop offset="1" stop-color="#E8E4D8"/>
+    </linearGradient>
+  </defs>
+  <rect width="420" height="120" rx="30" fill="url(#charcoal)"/>
+  <rect x="34" y="22" width="76" height="76" rx="21" fill="url(#tile)"/>
+  <g transform="translate(45 28) scale(0.42)">
+    <path d="M25 86H223C229.627 86 235 91.373 235 98V194C235 200.627 229.627 206 223 206H25C18.373 206 13 200.627 13 194V98C13 91.373 18.373 86 25 86Z" stroke="url(#teal)" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M26 98L118 158C122.008 160.613 127.16 160.561 131.115 157.868L222 96" stroke="url(#teal)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M41 103L123 157L207 102" stroke="#F6F2E8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.18"/>
+    <path d="M63 58L222 30C232.797 28.099 240.744 40.071 234.75 49.25L126.5 215.25C120.472 224.494 106.2 219.463 107.225 208.478L115.25 122.5L63 58Z" fill="url(#paper)"/>
+    <path d="M63 58L115.25 122.5L222 30L63 58Z" fill="#FFFFFF"/>
+    <path d="M115.25 122.5L234 39L126.5 215.25L115.25 122.5Z" fill="#DAD5C9"/>
+    <path d="M63 58L115.25 122.5L91.5 174.5" stroke="#17201F" stroke-opacity="0.08" stroke-width="5" stroke-linejoin="round"/>
+  </g>
+  <text x="128" y="74" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="46" font-weight="780" letter-spacing="-2.3" fill="#FFFDF7">InboxPilot</text>
+</svg>

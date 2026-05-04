@@ -27,25 +27,15 @@ export async function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5">
       <div className="liquid-glass mx-auto grid h-16 max-w-[1500px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl bg-[#f7f6f1]/70 px-4 sm:px-6">
-        <Link href="/" className="flex min-w-0 items-center gap-3 justify-self-start">
-          <span className="flex size-9 items-center justify-center overflow-hidden rounded-md bg-[#141817] shadow-sm">
-            <Image
-              src="/brand/inboxpilot-logo-120.png"
-              alt="InboxPilot logo"
-              width={36}
-              height={36}
-              className="size-9"
-              priority
-            />
-          </span>
-          <span>
-            <span className="block text-sm font-semibold leading-4">
-              InboxPilot
-            </span>
-            <span className="block text-xs text-[#68716d]">
-              Email triage
-            </span>
-          </span>
+        <Link href="/" className="flex min-w-0 items-center justify-self-start">
+          <Image
+            src="/brand/inboxpilot-horizontal-dark.svg"
+            alt="InboxPilot"
+            width={210}
+            height={60}
+            className="h-11 w-auto drop-shadow-sm sm:h-12"
+            priority
+          />
         </Link>
 
         <nav className="hidden items-center gap-3 justify-self-center md:flex">
