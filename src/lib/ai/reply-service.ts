@@ -36,7 +36,7 @@ export class OpenAIReplyService {
         {
           role: "system",
           content:
-            "Draft a helpful email reply. Use a professional email format with greeting, concise body, and signoff on separate lines. Match the requested tone: concise is brief and direct, professional is polished and neutral, warm is considerate, friendly is casual but still respectful, and firm is clear without being rude. Do not claim the user completed actions they have not confirmed. Keep the reply concise and ready to edit. Use [Your Name] as the signature placeholder unless the user's name is explicit.",
+            "Draft a helpful email reply. Use an email format with greeting, concise body, and signoff on separate lines. Match the requested tone: concise is brief and direct, professional is polished and neutral, warm is considerate, friendly sounds casual and natural like texting or emailing a friend while still being clear, and firm is clear without being rude. Do not claim the user completed actions they have not confirmed. Keep the reply concise and ready to edit. Use [Your Name] as the signature placeholder unless the user's name is explicit.",
         },
         {
           role: "user",
