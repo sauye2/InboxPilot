@@ -1232,6 +1232,11 @@ function parseDeadlineAt(deadline: string | null) {
 function isInboundProviderMessage(email: EmailMessage, accountEmail: string) {
   const sender = email.senderEmail.trim().toLowerCase();
   const account = accountEmail.trim().toLowerCase();
+  const labels = new Set(email.labels.map((label) => label.toLowerCase()));
+
+  if (labels.has("sent") || labels.has("\\sent")) {
+    return false;
+  }
 
   if (email.provider === "outlook") {
     if (/^outlook_[a-z0-9]+@outlook\.com$/i.test(sender)) return false;

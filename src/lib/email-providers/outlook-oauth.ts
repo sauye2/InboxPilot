@@ -175,6 +175,7 @@ type OutlookMessage = {
   subject?: string | null;
   bodyPreview?: string | null;
   receivedDateTime?: string | null;
+  sentDateTime?: string | null;
   isRead?: boolean | null;
   categories?: string[] | null;
   from?: {
@@ -197,13 +198,73 @@ type OutlookMessage = {
 
 export async function fetchRecentOutlookMessages(accessToken: string, maxResults = 50) {
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const url = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages");
+  const inboxMessages = await fetchOutlookFolderMessages({
+    accessToken,
+    folder: "inbox",
+    since,
+    maxResults,
+    orderBy: "receivedDateTime desc",
+    filterField: "receivedDateTime",
+  });
+  const inboxConversationIds = new Set(
+    inboxMessages
+      .map((message) => message.conversationId)
+      .filter(Boolean) as string[],
+  );
+
+  let sentMessages: OutlookMessage[] = [];
+  if (inboxConversationIds.size > 0) {
+    try {
+      sentMessages = (
+        await fetchOutlookFolderMessages({
+          accessToken,
+          folder: "sentitems",
+          since,
+          maxResults,
+          orderBy: "sentDateTime desc",
+          filterField: "sentDateTime",
+        })
+      ).filter(
+        (message) =>
+          message.conversationId && inboxConversationIds.has(message.conversationId),
+      );
+    } catch {
+      sentMessages = [];
+    }
+  }
+
+  const seen = new Set<string>();
+  return [...inboxMessages, ...sentMessages]
+    .filter((message) => {
+      if (seen.has(message.id)) return false;
+      seen.add(message.id);
+      return true;
+    })
+    .map((message) => toEmailMessage(message, sentMessages.some((sent) => sent.id === message.id)));
+}
+
+async function fetchOutlookFolderMessages({
+  accessToken,
+  folder,
+  since,
+  maxResults,
+  orderBy,
+  filterField,
+}: {
+  accessToken: string;
+  folder: "inbox" | "sentitems";
+  since: string;
+  maxResults: number;
+  orderBy: string;
+  filterField: "receivedDateTime" | "sentDateTime";
+}) {
+  const url = new URL(`https://graph.microsoft.com/v1.0/me/mailFolders/${folder}/messages`);
   url.searchParams.set("$top", String(maxResults));
-  url.searchParams.set("$orderby", "receivedDateTime desc");
-  url.searchParams.set("$filter", `receivedDateTime ge ${since}`);
+  url.searchParams.set("$orderby", orderBy);
+  url.searchParams.set("$filter", `${filterField} ge ${since}`);
   url.searchParams.set(
     "$select",
-    "id,conversationId,subject,bodyPreview,receivedDateTime,isRead,categories,from,sender,body",
+    "id,conversationId,subject,bodyPreview,receivedDateTime,sentDateTime,isRead,categories,from,sender,body",
   );
 
   const response = await fetch(url, {
@@ -222,25 +283,27 @@ export async function fetchRecentOutlookMessages(accessToken: string, maxResults
 
   const payload = (await response.json()) as { value?: OutlookMessage[] };
 
-  return (payload.value ?? []).map((message) => {
-    const sender = message.from?.emailAddress ?? message.sender?.emailAddress;
-    const body = cleanEmailText(message.body?.content ?? "");
-    const snippet = cleanEmailText(decodeHtmlEntities(message.bodyPreview ?? ""));
+  return payload.value ?? [];
+}
 
-    return {
-      id: `outlook:${message.id}`,
-      provider: "outlook" as const,
-      senderName: sender?.name ?? sender?.address ?? "Unknown sender",
-      senderEmail: sender?.address ?? "unknown@example.com",
-      subject: message.subject || "(No subject)",
-      body: body || snippet,
-      snippet,
-      receivedAt: message.receivedDateTime ?? new Date().toISOString(),
-      isRead: Boolean(message.isRead),
-      labels: message.categories ?? [],
-      threadId: message.conversationId ?? message.id,
-    };
-  });
+function toEmailMessage(message: OutlookMessage, isSent: boolean) {
+  const sender = message.from?.emailAddress ?? message.sender?.emailAddress;
+  const body = cleanEmailText(message.body?.content ?? "");
+  const snippet = cleanEmailText(decodeHtmlEntities(message.bodyPreview ?? ""));
+
+  return {
+    id: `outlook:${message.id}`,
+    provider: "outlook" as const,
+    senderName: sender?.name ?? sender?.address ?? "Unknown sender",
+    senderEmail: sender?.address ?? "unknown@example.com",
+    subject: message.subject || "(No subject)",
+    body: body || snippet,
+    snippet,
+    receivedAt: message.receivedDateTime ?? message.sentDateTime ?? new Date().toISOString(),
+    isRead: Boolean(message.isRead),
+    labels: [...(message.categories ?? []), isSent ? "sent" : "inbox"],
+    threadId: message.conversationId ?? message.id,
+  };
 }
 
 export async function sendOutlookThreadReply({

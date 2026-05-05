@@ -597,7 +597,7 @@ export function DashboardClient({
           </section>
         </div>
 
-        <div className="flex h-[800px] min-h-0">
+        <div className="flex h-[910px] min-h-0">
           {hasRun ? (
             <PriorityQueue
               items={filteredItems}
