@@ -252,20 +252,32 @@ export async function sendOutlookThreadReply({
   outlookMessageId: string;
   body: string;
 }) {
-  const response = await graphFetch(
+  const draftResponse = await graphFetch(
     accessToken,
-    `/me/messages/${encodeURIComponent(outlookMessageId)}/reply`,
+    `/me/messages/${encodeURIComponent(outlookMessageId)}/createReply`,
     {
       method: "POST",
-      body: JSON.stringify({
-        comment: normalizeOutgoingEmailBody(body),
-      }),
     },
   );
+  const draft = (await draftResponse.json()) as { id?: string };
 
-  if (response.status !== 202) {
-    throw new OutlookApiError(`Outlook send failed with ${response.status}.`, response.status);
+  if (!draft.id) {
+    throw new OutlookApiError("Outlook reply draft did not include a message id.", 500);
   }
+
+  await graphFetch(accessToken, `/me/messages/${encodeURIComponent(draft.id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      body: {
+        contentType: "HTML",
+        content: formatOutlookReplyHtml(body),
+      },
+    }),
+  });
+
+  await graphFetch(accessToken, `/me/messages/${encodeURIComponent(draft.id)}/send`, {
+    method: "POST",
+  });
 
   return { id: outlookMessageId };
 }
@@ -304,4 +316,27 @@ async function graphFetch(accessToken: string, path: string, init: RequestInit =
   }
 
   return response;
+}
+
+function formatOutlookReplyHtml(value: string) {
+  const paragraphs = normalizeOutgoingEmailBody(value)
+    .split(/\r\n\r\n|\n\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  return paragraphs
+    .map(
+      (paragraph) =>
+        `<p style="margin:0 0 14px 0; line-height:1.55;">${escapeHtml(paragraph).replace(/\r?\n/g, "<br />")}</p>`,
+    )
+    .join("");
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

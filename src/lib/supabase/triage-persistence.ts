@@ -1125,13 +1125,14 @@ async function syncTaskStateForMessages({
     status: TaskStatus;
     draft_subject: string | null;
     draft_body: string | null;
+    last_inbound_at: string | null;
     last_outbound_at: string | null;
   }> = [];
 
   if (messageIds.length > 0) {
     const { data, error } = await admin
       .from("tasks")
-      .select("id, email_message_id, provider, provider_thread_id, status, draft_subject, draft_body, last_outbound_at")
+      .select("id, email_message_id, provider, provider_thread_id, status, draft_subject, draft_body, last_inbound_at, last_outbound_at")
       .eq("user_id", userId)
       .in("email_message_id", messageIds);
 
@@ -1146,7 +1147,7 @@ async function syncTaskStateForMessages({
     const [provider, threadId] = key.split(":");
     const { data, error } = await admin
       .from("tasks")
-      .select("id, email_message_id, provider, provider_thread_id, status, draft_subject, draft_body, last_outbound_at")
+      .select("id, email_message_id, provider, provider_thread_id, status, draft_subject, draft_body, last_inbound_at, last_outbound_at")
       .eq("user_id", userId)
       .eq("provider", provider)
       .eq("provider_thread_id", threadId)
@@ -1167,10 +1168,18 @@ async function syncTaskStateForMessages({
     if (task.status !== "waiting" || !task.provider || !task.provider_thread_id) continue;
     const newest = newestInboundByThread.get(`${task.provider}:${task.provider_thread_id}`);
     if (!newest) continue;
-    const newerThanOutbound =
-      !task.last_outbound_at || new Date(newest.email.receivedAt) > new Date(task.last_outbound_at);
+    const newestInboundAt = new Date(newest.email.receivedAt).getTime();
+    const previousInboundAt = task.last_inbound_at
+      ? new Date(task.last_inbound_at).getTime()
+      : 0;
+    const outboundAt = task.last_outbound_at
+      ? new Date(task.last_outbound_at).getTime()
+      : 0;
+    const outboundWindowStart = outboundAt > 0 ? outboundAt - 3 * 60 * 1000 : 0;
+    const newerThanPreviousInbound = newestInboundAt > previousInboundAt;
+    const newerThanOutbound = outboundAt === 0 || newestInboundAt >= outboundWindowStart;
 
-    if (newerThanOutbound) {
+    if (newerThanPreviousInbound && newerThanOutbound) {
       const newestMessageId = messageByProviderId.get(providerMessageId(newest.email.id)) ?? null;
       await admin
         .from("tasks")
@@ -1183,6 +1192,7 @@ async function syncTaskStateForMessages({
         .eq("id", task.id);
       task.email_message_id = newestMessageId;
       task.status = "to_reply";
+      task.last_inbound_at = newest.email.receivedAt;
     }
   }
 
