@@ -384,5 +384,18 @@ function normalizeUsableReplyToEmail(value?: string | null) {
   if (!email) return null;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
   if (/^outlook_[a-z0-9]+@outlook\.com$/i.test(email)) return null;
+  if (isExternalMicrosoftLoginEmail(email)) return null;
   return email;
+}
+
+function isExternalMicrosoftLoginEmail(email: string) {
+  const domain = email.split("@")[1] ?? "";
+  return new Set([
+    "gmail.com",
+    "googlemail.com",
+    "yahoo.com",
+    "icloud.com",
+    "me.com",
+    "mac.com",
+  ]).has(domain);
 }
