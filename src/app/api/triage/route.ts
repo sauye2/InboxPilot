@@ -143,17 +143,21 @@ function stabilizeThreadTriage(
   const shouldRestoreCategory =
     current.category === "Inbox Noise" ||
     (!current.requiresAction && prior.requiresAction);
+  const deadline = current.deadline ?? prior.deadline;
+  const priority = highestPriority(current.priority, prior.priority);
 
-  if (!shouldRestoreCategory) return item;
+  if (!shouldRestoreCategory && priority === current.priority && deadline === current.deadline) {
+    return item;
+  }
 
   return {
     ...item,
     triage: {
       ...current,
-      category: prior.category,
-      priority: highestPriority(current.priority, prior.priority),
-      requiresAction: current.requiresAction || prior.requiresAction,
-      deadline: current.deadline ?? prior.deadline,
+      category: shouldRestoreCategory ? prior.category : current.category,
+      priority,
+      requiresAction: current.requiresAction || (shouldRestoreCategory && prior.requiresAction),
+      deadline,
       suggestedNextAction:
         current.suggestedNextAction === "No action needed."
           ? "Review the latest thread reply and respond if needed."

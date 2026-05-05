@@ -432,7 +432,25 @@ export async function getPriorThreadTriageMap({
       provider_message_id: string;
       thread_id: string | null;
     }>;
-    const messageIds = messages.map((message) => message.id);
+    const { data: taskRows, error: taskError } = await admin
+      .from("tasks")
+      .select("email_message_id, provider_thread_id")
+      .eq("user_id", userId)
+      .eq("provider", provider)
+      .in("provider_thread_id", [...threadIds])
+      .neq("status", "archived");
+
+    if (taskError) {
+      throw new Error(taskError.message);
+    }
+
+    const taskMessageIds = ((taskRows ?? []) as Array<{
+      email_message_id: string | null;
+      provider_thread_id: string | null;
+    }>)
+      .map((task) => task.email_message_id)
+      .filter(Boolean) as string[];
+    const messageIds = [...new Set([...messages.map((message) => message.id), ...taskMessageIds])];
 
     if (messageIds.length === 0) continue;
 
@@ -449,6 +467,14 @@ export async function getPriorThreadTriageMap({
     }
 
     const threadByMessageId = new Map(messages.map((message) => [message.id, message.thread_id]));
+    for (const task of (taskRows ?? []) as Array<{
+      email_message_id: string | null;
+      provider_thread_id: string | null;
+    }>) {
+      if (task.email_message_id && task.provider_thread_id) {
+        threadByMessageId.set(task.email_message_id, task.provider_thread_id);
+      }
+    }
     const bestByThread = new Map<string, PriorThreadTriage>();
 
     for (const triage of (triageRows ?? []) as Array<{
@@ -460,7 +486,7 @@ export async function getPriorThreadTriageMap({
     }>) {
       if (!triage.email_message_id) continue;
       const threadId = threadByMessageId.get(triage.email_message_id);
-      if (!threadId || bestByThread.has(threadId)) continue;
+      if (!threadId) continue;
 
       if (triage.category === "Inbox Noise") {
         const hasBetterPrior = (triageRows ?? []).some((candidate) => {
@@ -477,12 +503,17 @@ export async function getPriorThreadTriageMap({
         if (hasBetterPrior) continue;
       }
 
-      bestByThread.set(threadId, {
+      const candidate = {
         category: triage.category,
         priority: triage.priority,
         requiresAction: triage.requires_action,
         deadline: triage.deadline_text,
-      });
+      };
+      const existing = bestByThread.get(threadId);
+
+      if (!existing || isStrongerPriorTriage(candidate, existing)) {
+        bestByThread.set(threadId, candidate);
+      }
     }
 
     for (const email of emails) {
@@ -495,6 +526,21 @@ export async function getPriorThreadTriageMap({
   }
 
   return byCurrentEmailId;
+}
+
+function isStrongerPriorTriage(candidate: PriorThreadTriage, existing: PriorThreadTriage) {
+  if (existing.category === "Inbox Noise" && candidate.category !== "Inbox Noise") return true;
+  if (candidate.category === "Inbox Noise" && existing.category !== "Inbox Noise") return false;
+  if (priorityRank(candidate.priority) !== priorityRank(existing.priority)) {
+    return priorityRank(candidate.priority) > priorityRank(existing.priority);
+  }
+  if (candidate.deadline && !existing.deadline) return true;
+  if (candidate.requiresAction && !existing.requiresAction) return true;
+  return false;
+}
+
+function priorityRank(priority: PriorityLevel) {
+  return { low: 0, medium: 1, high: 2 }[priority];
 }
 
 export async function findPersistedEmailMessage(
@@ -1070,7 +1116,7 @@ async function syncTaskStateForMessages({
     const newerThanOutbound =
       !task.last_outbound_at || new Date(newest.email.receivedAt) > new Date(task.last_outbound_at);
 
-    if (newerThanOutbound && newest.triage.requiresAction) {
+    if (newerThanOutbound) {
       const newestMessageId = messageByProviderId.get(providerMessageId(newest.email.id)) ?? null;
       await admin
         .from("tasks")
