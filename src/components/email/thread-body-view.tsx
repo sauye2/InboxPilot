@@ -112,7 +112,7 @@ function parseMarkedThreadBlock(block: string, index: number): ThreadMessageBloc
 function stripEmbeddedQuotedThreadTail(value: string) {
   return value
     .replace(
-      /\s+On\s+[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4},\s+at\s+\d{1,2}:\d{2}(?:\s|\u202f)?[AP]M[\s\S]*$/i,
+      /\s+(?:On\s+)?(?:[A-Z][a-z]{2},\s+)?[A-Z][a-z]{2}\s+\d{1,2},(?:\s+\d{4})?,?\s+(?:at\s+)?\d{1,2}:\d{2}(?:\s|\u202f)?[AP]M\b[\s\S]*$/i,
       "",
     )
     .trim();
