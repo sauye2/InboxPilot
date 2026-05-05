@@ -1107,7 +1107,7 @@ async function syncTaskStateForMessages({
   const newestInboundByThread = new Map<string, TriagedEmail>();
   for (const item of items) {
     const accountEmail = accountByProvider.get(item.email.provider) ?? "";
-    const isInbound = item.email.senderEmail.toLowerCase() !== accountEmail;
+    const isInbound = isInboundProviderMessage(item.email, accountEmail);
     if (!item.email.threadId || !isInbound) continue;
 
     const key = `${item.email.provider}:${item.email.threadId}`;
@@ -1227,6 +1227,35 @@ function parseDeadlineAt(deadline: string | null) {
   if (!deadline) return null;
   const timestamp = Date.parse(deadline);
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
+function isInboundProviderMessage(email: EmailMessage, accountEmail: string) {
+  const sender = email.senderEmail.trim().toLowerCase();
+  const account = accountEmail.trim().toLowerCase();
+
+  if (email.provider === "outlook") {
+    if (/^outlook_[a-z0-9]+@outlook\.com$/i.test(sender)) return false;
+    if (!account) return true;
+
+    const accountDomain = account.split("@")[1] ?? "";
+    const externalLoginDomains = new Set([
+      "gmail.com",
+      "googlemail.com",
+      "yahoo.com",
+      "icloud.com",
+      "me.com",
+      "mac.com",
+    ]);
+
+    if (sender === account && !externalLoginDomains.has(accountDomain)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  if (!account) return true;
+  return sender !== account;
 }
 
 function subjectFingerprint(subject: string) {

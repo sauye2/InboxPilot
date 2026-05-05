@@ -69,11 +69,17 @@ export async function POST(request: Request) {
       tag: token.encryption_tag,
     });
     const refreshed = await refreshOutlookAccessToken(refreshToken);
+    const { data: connection } = await admin
+      .from("email_connections")
+      .select("provider_account_email")
+      .eq("id", token.connection_id)
+      .maybeSingle();
     const outlookMessageId = persisted.email.id.replace(/^outlook:/, "");
     const sent = await sendOutlookThreadReply({
       accessToken: refreshed.access_token,
       outlookMessageId,
       body: payload.data.body,
+      replyToEmail: (connection?.provider_account_email as string | null | undefined) ?? null,
     });
     const now = new Date().toISOString();
 

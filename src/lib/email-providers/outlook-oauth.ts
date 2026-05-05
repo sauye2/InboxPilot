@@ -247,10 +247,12 @@ export async function sendOutlookThreadReply({
   accessToken,
   outlookMessageId,
   body,
+  replyToEmail,
 }: {
   accessToken: string;
   outlookMessageId: string;
   body: string;
+  replyToEmail?: string | null;
 }) {
   const draftResponse = await graphFetch(
     accessToken,
@@ -265,15 +267,51 @@ export async function sendOutlookThreadReply({
     throw new OutlookApiError("Outlook reply draft did not include a message id.", 500);
   }
 
-  await graphFetch(accessToken, `/me/messages/${encodeURIComponent(draft.id)}`, {
-    method: "PATCH",
-    body: JSON.stringify({
+  const replyPatch: {
+    body: {
+      contentType: "HTML";
+      content: string;
+    };
+    replyTo?: Array<{
+      emailAddress: {
+        address: string;
+      };
+    }>;
+  } = {
       body: {
         contentType: "HTML",
         content: formatOutlookReplyHtml(body),
       },
-    }),
-  });
+    };
+
+  const normalizedReplyTo = normalizeUsableReplyToEmail(replyToEmail);
+  if (normalizedReplyTo) {
+    replyPatch.replyTo = [
+      {
+        emailAddress: {
+          address: normalizedReplyTo,
+        },
+      },
+    ];
+  }
+
+  try {
+    await graphFetch(accessToken, `/me/messages/${encodeURIComponent(draft.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(replyPatch),
+    });
+  } catch (error) {
+    if (!normalizedReplyTo) {
+      throw error;
+    }
+
+    await graphFetch(accessToken, `/me/messages/${encodeURIComponent(draft.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        body: replyPatch.body,
+      }),
+    });
+  }
 
   await graphFetch(accessToken, `/me/messages/${encodeURIComponent(draft.id)}/send`, {
     method: "POST",
@@ -339,4 +377,12 @@ function escapeHtml(value: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function normalizeUsableReplyToEmail(value?: string | null) {
+  const email = value?.trim().toLowerCase();
+  if (!email) return null;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+  if (/^outlook_[a-z0-9]+@outlook\.com$/i.test(email)) return null;
+  return email;
 }
