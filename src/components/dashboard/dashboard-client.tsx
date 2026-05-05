@@ -47,6 +47,7 @@ export function DashboardClient({
   const [activeEmails, setActiveEmails] = useState<EmailMessage[]>([]);
   const [openAIItems, setOpenAIItems] = useState<TriagedEmail[] | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [taskNotice, setTaskNotice] = useState<string | null>(null);
   const [showConsent, setShowConsent] = useState(false);
   const [pendingScan, setPendingScan] = useState(false);
   const [greeting] = useState(getTimeGreeting);
@@ -79,8 +80,10 @@ export function DashboardClient({
         preferredItems.map((item) => [item.email.id, item]),
       );
       setAccountTasks(
-        ((payload.items ?? []) as TriagedEmail[]).map(
-          (item) => preferredById.get(item.email.id) ?? item,
+        dedupeTriagedItemsByThread(
+          ((payload.items ?? []) as TriagedEmail[]).map(
+            (item) => preferredById.get(item.email.id) ?? item,
+          ),
         ),
       );
       setTaskIds(payload.taskEmailIds ?? []);
@@ -195,6 +198,7 @@ export function DashboardClient({
   ) {
     setIsScanning(true);
     setScanError(null);
+    setTaskNotice(null);
 
     try {
       if (
@@ -270,6 +274,16 @@ export function DashboardClient({
 
   function addTask(id: string) {
     const item = analyzed.items.find((candidate) => candidate.email.id === id);
+    const existingThreadTask = item
+      ? accountTasks.find((task) => getEmailThreadKey(task.email) === getEmailThreadKey(item.email))
+      : null;
+
+    if (existingThreadTask) {
+      setScanError(null);
+      setTaskNotice("This email thread is already in Tasks.");
+      void loadPersistedTasks(sourceRef.current, analyzed.items);
+      return;
+    }
 
     setTaskIds((current) => (current.includes(id) ? current : [...current, id]));
     if (item) {
@@ -282,6 +296,7 @@ export function DashboardClient({
         ? current
         : [...current, { emailId: id, status: "to_reply", draftSubject: null, draftBody: null }],
     );
+    setTaskNotice(null);
     void createPersistedTask(id);
   }
 
@@ -299,6 +314,7 @@ export function DashboardClient({
     }
 
     setScanError(null);
+    setTaskNotice(null);
   }
 
   async function deleteEmail(id: string) {
@@ -517,6 +533,7 @@ export function DashboardClient({
                     setTaskIds([]);
                     setTaskStates([]);
                     setAccountTasks([]);
+                    setTaskNotice(null);
                     void loadPersistedTasks(option);
                   }}
                     className={`relative z-10 flex h-full items-center justify-center rounded-md text-sm font-semibold transition-colors duration-300 ${
@@ -537,6 +554,11 @@ export function DashboardClient({
               {scanError}
             </div>
           ) : null}
+          {taskNotice ? (
+            <div className="rounded-xl border border-[#0b8077]/20 bg-[#e7faf5] px-4 py-3 text-sm text-[#09645f]">
+              {taskNotice}
+            </div>
+          ) : null}
 
           <ModeSelector
             value={mode}
@@ -549,6 +571,7 @@ export function DashboardClient({
               setOpenAIItems(null);
               setSelectedId(null);
               setSelectedFilter("needs_action");
+              setTaskNotice(null);
             }}
           />
 
@@ -1240,6 +1263,21 @@ function normalizeProviderMessages(
       } satisfies EmailMessage;
     })
     .filter(Boolean) as EmailMessage[];
+}
+
+function getEmailThreadKey(email: EmailMessage) {
+  return `${email.provider}:${email.threadId || email.id}`;
+}
+
+function dedupeTriagedItemsByThread(items: TriagedEmail[]) {
+  const seen = new Set<string>();
+
+  return items.filter((item) => {
+    const key = getEmailThreadKey(item.email);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function collapseThreadMessages(messages: EmailMessage[]) {

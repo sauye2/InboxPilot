@@ -114,7 +114,7 @@ export async function getPersistedTasks({
     throw new Error(taskError.message);
   }
 
-  const tasks = (taskRows ?? []) as PersistedTaskRow[];
+  const tasks = dedupeTaskRowsByThread((taskRows ?? []) as PersistedTaskRow[]);
   const messageIds = tasks
     .map((task) => task.email_message_id)
     .filter(Boolean) as string[];
@@ -799,6 +799,7 @@ async function saveTaskForPersistedEmail({
       throw new Error(error.message);
     }
 
+    await archiveDuplicateThreadTasks(admin, userId, persisted, existing.id);
     return;
   }
 
@@ -808,10 +809,18 @@ async function saveTaskForPersistedEmail({
     status: values.status ?? "to_reply",
   };
 
-  const { error } = await admin.from("tasks").insert(insertPayload);
+  const { data: insertedTask, error } = await admin
+    .from("tasks")
+    .insert(insertPayload)
+    .select("id")
+    .single();
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (insertedTask?.id) {
+    await archiveDuplicateThreadTasks(admin, userId, persisted, insertedTask.id as string);
   }
 }
 
@@ -825,6 +834,9 @@ async function findExistingTaskForPersistedEmail(
     .select("id")
     .eq("user_id", userId)
     .eq("email_message_id", persisted.dbId)
+    .neq("status", "archived")
+    .order("updated_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (exactError) {
@@ -853,6 +865,48 @@ async function findExistingTaskForPersistedEmail(
   }
 
   return (threadTask as { id: string } | null) ?? null;
+}
+
+function dedupeTaskRowsByThread(tasks: PersistedTaskRow[]) {
+  const seen = new Set<string>();
+
+  return tasks.filter((task) => {
+    const key =
+      task.provider && task.provider_thread_id
+        ? `${task.provider}:${task.provider_thread_id}`
+        : task.email_message_id
+          ? `email:${task.email_message_id}`
+          : `task:${task.id}`;
+
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function archiveDuplicateThreadTasks(
+  admin: SupabaseClient,
+  userId: string,
+  persisted: NonNullable<Awaited<ReturnType<typeof findPersistedEmailMessage>>>,
+  keepTaskId: string,
+) {
+  if (!persisted.email.threadId) return;
+
+  const { error } = await admin
+    .from("tasks")
+    .update({
+      status: "archived",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("provider", persisted.email.provider)
+    .eq("provider_thread_id", persisted.email.threadId)
+    .neq("id", keepTaskId)
+    .neq("status", "archived");
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 export async function createTriageFeedbackRule({
