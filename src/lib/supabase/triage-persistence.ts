@@ -80,6 +80,13 @@ export type TriageFeedbackRule = {
   priorityOverride: PriorityLevel | null;
 };
 
+export type PriorThreadTriage = {
+  category: string;
+  priority: PriorityLevel;
+  requiresAction: boolean;
+  deadline: string | null;
+};
+
 export function providerMessageId(emailId: string) {
   return emailId;
 }
@@ -385,6 +392,109 @@ export async function persistTriagedInbox({
       .map((task) => task.emailId),
     taskStates: taskState.taskStates,
   };
+}
+
+export async function getPriorThreadTriageMap({
+  admin,
+  userId,
+  mode,
+  emails,
+}: {
+  admin: SupabaseClient;
+  userId: string;
+  mode: TriageMode;
+  emails: EmailMessage[];
+}) {
+  const byCurrentEmailId = new Map<string, PriorThreadTriage>();
+  const threadsByProvider = new Map<EmailMessage["provider"], Set<string>>();
+
+  for (const email of emails) {
+    if (!email.threadId) continue;
+    const set = threadsByProvider.get(email.provider) ?? new Set<string>();
+    set.add(email.threadId);
+    threadsByProvider.set(email.provider, set);
+  }
+
+  for (const [provider, threadIds] of threadsByProvider.entries()) {
+    const { data: messageRows, error: messageError } = await admin
+      .from("email_messages")
+      .select("id, provider_message_id, thread_id")
+      .eq("user_id", userId)
+      .eq("provider", provider)
+      .in("thread_id", [...threadIds]);
+
+    if (messageError) {
+      throw new Error(messageError.message);
+    }
+
+    const messages = (messageRows ?? []) as Array<{
+      id: string;
+      provider_message_id: string;
+      thread_id: string | null;
+    }>;
+    const messageIds = messages.map((message) => message.id);
+
+    if (messageIds.length === 0) continue;
+
+    const { data: triageRows, error: triageError } = await admin
+      .from("triage_results")
+      .select("email_message_id, category, priority, requires_action, deadline_text, created_at")
+      .eq("user_id", userId)
+      .eq("mode", mode)
+      .in("email_message_id", messageIds)
+      .order("created_at", { ascending: false });
+
+    if (triageError) {
+      throw new Error(triageError.message);
+    }
+
+    const threadByMessageId = new Map(messages.map((message) => [message.id, message.thread_id]));
+    const bestByThread = new Map<string, PriorThreadTriage>();
+
+    for (const triage of (triageRows ?? []) as Array<{
+      email_message_id: string | null;
+      category: string;
+      priority: PriorityLevel;
+      requires_action: boolean;
+      deadline_text: string | null;
+    }>) {
+      if (!triage.email_message_id) continue;
+      const threadId = threadByMessageId.get(triage.email_message_id);
+      if (!threadId || bestByThread.has(threadId)) continue;
+
+      if (triage.category === "Inbox Noise") {
+        const hasBetterPrior = (triageRows ?? []).some((candidate) => {
+          const candidateRow = candidate as {
+            email_message_id: string | null;
+            category: string;
+          };
+          return (
+            candidateRow.email_message_id &&
+            threadByMessageId.get(candidateRow.email_message_id) === threadId &&
+            candidateRow.category !== "Inbox Noise"
+          );
+        });
+        if (hasBetterPrior) continue;
+      }
+
+      bestByThread.set(threadId, {
+        category: triage.category,
+        priority: triage.priority,
+        requiresAction: triage.requires_action,
+        deadline: triage.deadline_text,
+      });
+    }
+
+    for (const email of emails) {
+      if (email.provider !== provider || !email.threadId) continue;
+      const prior = bestByThread.get(email.threadId);
+      if (prior) {
+        byCurrentEmailId.set(email.id, prior);
+      }
+    }
+  }
+
+  return byCurrentEmailId;
 }
 
 export async function findPersistedEmailMessage(

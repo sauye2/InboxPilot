@@ -10,11 +10,13 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   applyTriageFeedbackRules,
+  getPriorThreadTriageMap,
   getTriageFeedbackRules,
   persistTriagedInbox,
+  type PriorThreadTriage,
 } from "@/lib/supabase/triage-persistence";
 import type { EmailMessage } from "@/types/email";
-import type { TriageMode } from "@/types/triage";
+import type { PriorityLevel, TriageMode, TriagedEmail } from "@/types/triage";
 
 const nullableString = z
   .union([z.string(), z.null(), z.undefined()])
@@ -72,6 +74,12 @@ export async function POST(request: Request) {
     const provider = useOpenAI && process.env.OPENAI_API_KEY ? "openai" : "local";
     const concurrency = provider === "openai" ? getOpenAIConcurrency() : 8;
     const feedbackRules = await getTriageFeedbackRules(admin, user.id, mode);
+    const priorThreadTriage = await getPriorThreadTriageMap({
+      admin,
+      userId: user.id,
+      mode,
+      emails: emails as EmailMessage[],
+    });
     let fallbackCount = 0;
     const items = await mapWithConcurrency(emails, concurrency, async (email) => ({
         email: email as EmailMessage,
@@ -86,7 +94,9 @@ export async function POST(request: Request) {
           },
         }),
       })).then((triaged) =>
-        triaged.map((item) => applyTriageFeedbackRules(item, mode, feedbackRules)),
+        triaged
+          .map((item) => stabilizeThreadTriage(item, priorThreadTriage.get(item.email.id)))
+          .map((item) => applyTriageFeedbackRules(item, mode, feedbackRules)),
       );
 
     items.sort(compareTriagedEmail);
@@ -121,6 +131,45 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+function stabilizeThreadTriage(
+  item: TriagedEmail,
+  prior: PriorThreadTriage | undefined,
+) {
+  if (!prior || prior.category === "Inbox Noise") return item;
+
+  const current = item.triage;
+  const shouldRestoreCategory =
+    current.category === "Inbox Noise" ||
+    (!current.requiresAction && prior.requiresAction);
+
+  if (!shouldRestoreCategory) return item;
+
+  return {
+    ...item,
+    triage: {
+      ...current,
+      category: prior.category,
+      priority: highestPriority(current.priority, prior.priority),
+      requiresAction: current.requiresAction || prior.requiresAction,
+      deadline: current.deadline ?? prior.deadline,
+      suggestedNextAction:
+        current.suggestedNextAction === "No action needed."
+          ? "Review the latest thread reply and respond if needed."
+          : current.suggestedNextAction,
+      actionSummary:
+        current.actionSummary.includes("no immediate")
+          ? `Continue the existing ${prior.category.toLowerCase()} thread.`
+          : current.actionSummary,
+      reason: `${current.reason} Prior thread category preserved.`,
+    },
+  };
+}
+
+function highestPriority(a: PriorityLevel, b: PriorityLevel): PriorityLevel {
+  const rank: Record<PriorityLevel, number> = { low: 0, medium: 1, high: 2 };
+  return rank[a] >= rank[b] ? a : b;
 }
 
 function getOpenAIConcurrency() {
